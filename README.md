@@ -10,10 +10,11 @@ Reja: [docs/dastur-reja.md](docs/dastur-reja.md)
 | Papka | Modul | Holati |
 |---|---|---|
 | `sim/balance/` | Muvozanat va yon g'ildirak simulyatsiyasi | 1-versiya, 11 ta sinov |
-| `sim/world/` | 3D simulyatsiya (Gazebo + ROS 2) | rejada |
+| `autopilot/` | **Skuter dasturi**: kuzatish, yo'l tanlash, xavfsizlik qatlami | 1-versiya |
+| `sim/world/` | Virtual trotuar (2D): piyodalar, to'siqlar, kamera nosozligi | 1-versiya, 8 + 200 ta sinov |
+| `sim/3d/` | 3D simulyatsiya (Gazebo + ROS 2) | rejada |
 | `perception/` | Kamera orqali ko'rish | rejada |
 | `localization/` | Joylashuvni aniqlash | rejada |
-| `planning/` | Marshrut va harakat | rejada |
 | `safety/` | Mikrokontroller xavfsizlik dasturi | rejada |
 | `teleop/` | Teleoperatsiya | rejada |
 | `fleet/` | Flot, dispetcherlik, CRM, Telegram bot | rejada |
@@ -22,3 +23,4 @@ Reja: [docs/dastur-reja.md](docs/dastur-reja.md)
 
     python3 -m pip install numpy matplotlib
     cd sim/balance && python3 sinovlar.py
+    cd sim/world && python3 sinovlar.py 200
