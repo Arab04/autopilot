@@ -10,8 +10,8 @@ Reja: [docs/dastur-reja.md](docs/dastur-reja.md)
 | Papka | Modul | Holati |
 |---|---|---|
 | `sim/balance/` | Muvozanat va yon g'ildirak simulyatsiyasi | 1-versiya, 11 ta sinov |
-| `autopilot/` | **Skuter dasturi**: kuzatish, yo'l tanlash, burilish, yo'lni kesib o'tish, xavfsizlik qatlami | 2-versiya |
-| `sim/world/` | Virtual shahar (2D): trotuar, burilish, yo'l o'tish joyi, piyodalar, mashinalar, svetofor | 2-versiya, 16 + 200 + 100 ta sinov |
+| `autopilot/` | **Skuter dasturi**: kuzatish, yo'l tanlash, burilish, yo'lni kesib o'tish, xavfsizlik qatlami; 3-versiyadan **yo'lda yurish** (`yol.py`) | 3-versiya |
+| `sim/world/` | Virtual shahar (2D): trotuar, burilish, yo'l o'tish joyi, piyodalar, mashinalar, svetofor; ko'cha (yo'lda yurish) simulyatori | 3-versiya, trotuar 16 + 200 + 100, ko'cha 14 + 200 ta sinov |
 | `sim/3d/` | 3D simulyatsiya (Gazebo + ROS 2) | rejada |
 | `perception/` | Kamera orqali ko'rish | rejada |
 | `localization/` | Joylashuvni aniqlash | rejada |
@@ -23,4 +23,5 @@ Reja: [docs/dastur-reja.md](docs/dastur-reja.md)
 
     python3 -m pip install numpy matplotlib
     cd sim/balance && python3 sinovlar.py
-    cd sim/world && python3 sinovlar.py 200
+    cd sim/world && python3 sinovlar.py 200      # trotuar va yo'lni kesib o'tish
+    cd sim/world && python3 yol_sinovlar.py 200  # 3-bosqich: skuter yo'lning o'ng chetida yuradi

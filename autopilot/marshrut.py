@@ -3,7 +3,8 @@
 Skuter marshrutni oldindan biladi (xaritadan). Har bir bo'lak uchun:
 - "trotuar": to'g'ri trotuar;
 - "burilish": aylana yoy (egrilik > 0 = chapga, < 0 = o'ngga);
-- "otish": avtomobil yo'lini piyodalar o'tish joyidan kesib o'tish.
+- "otish": avtomobil yo'lini piyodalar o'tish joyidan (yoki chorrahani) kesib o'tish;
+- "yol": avtomobil yo'lining o'ng cheti (3-bosqich): polosalar, velosiped yo'lagi, parkovka.
 """
 
 from dataclasses import dataclass, field
@@ -17,7 +18,9 @@ class Bolak:
     egrilik: float = 0.0          # 1/m, faqat burilish uchun
     yollar: int = 0               # otish: avtomobil yo'llari (polosalari) soni
     yol_kengligi: float = 3.5     # otish: bitta polosa kengligi (m)
-    svetofor: bool = False        # otish: piyodalar svetofori bormi
+    svetofor: bool = False        # otish: svetofor bormi (trotuarda piyodalar, yo'lda o'z yo'nalishimiz uchun)
+    velo: float = 0.0             # yol: velosiped yo'lagi kengligi (m), 0 = yo'q
+    parkovka: float = 0.0         # yol: chetda mashina to'xtash joyi kengligi (m), 0 = yo'q
     boshi: float = 0.0            # marshrut boshidan masofa (avtomatik hisoblanadi)
 
     @property

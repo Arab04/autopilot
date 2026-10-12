@@ -41,6 +41,7 @@ class OtishSozlamalari:
     skuter_old: float = 0.65           # skuter markazidan old chetigacha (m)
     skuter_orqa: float = 0.65
     min_tezlik: float = 0.8            # yo'lni bundan sekin kesib o'tmaymiz (m/s)
+    toxtamasdan: bool = False          # yo'lda: svetofor yashil va xavfsiz bo'lsa chiziqda to'xtamay o'tadi
 
 
 class YolOtishBoshqaruvi:
@@ -110,12 +111,23 @@ class YolOtishBoshqaruvi:
         if self.ruxsat.get(b.boshi):
             # Yo'lga chiqqanmizmi? Chiqmagan bo'lsak va vaziyat o'zgargan bo'lsa, to'xtaymiz.
             ichkarida = s + oc.skuter_old > b.boshi - 0.1
-            if not ichkarida and not self._xavfsiz(b, s, v, mashinalar, svetofor):
+            chiziq = b.boshi - oc.chiziqdan - oc.skuter_old
+            # To'xtay olmaydigan darajada yaqin bo'lsak (sariq chiroq "dilemmasi"), o'tib ketamiz
+            toxtay_oladi = not oc.toxtamasdan or chiziq - s >= v * v / (2 * oc.tormoz * 1.5)
+            # Mashina xavfi bo'lsa, yo'lga chiqmagunimizcha har doim to'xtaymiz. Faqat chiroq o'zgarsa
+            # (sariq "dilemma"), qulay to'xtay olmasak, o'tib ketamiz.
+            mashina_xavfi = self.v_otish >= oc.min_tezlik and not self.bosh_joy_bor(b, s, v, mashinalar)
+            if not ichkarida and (mashina_xavfi or (toxtay_oladi and not self._xavfsiz(b, s, v, mashinalar, svetofor))):
                 self.ruxsat[b.boshi] = False
             else:
                 return oc.otish_tezligi, "otish"
         chiziq = b.boshi - oc.chiziqdan - oc.skuter_old
         tezlik = math.sqrt(2 * oc.tormoz * max(0.0, chiziq - s))
+        if (oc.toxtamasdan and b.svetofor and v > 0.1
+                and chiziq - s <= v * v / (2 * oc.tormoz) + 2.0 and self._xavfsiz(b, s, v, mashinalar, svetofor)):
+            # Yashil yonib turibdi, mashinalar yo'q: velosipedchidek to'xtamasdan o'tamiz
+            self.ruxsat[b.boshi] = True
+            return max(oc.otish_tezligi, v), "otish"
         if chiziq - s > 0.4 or v > 0.1:
             return tezlik, "otishga_yaqinlashish"
         # Chiziqda turibmiz

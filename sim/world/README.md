@@ -70,3 +70,68 @@ Oxirgi natija: `natijalar.txt` va `natijalar.png`.
 - Skuter burilganda orqa qismining yon tomonga surilishi rejalovchida hisobga olinmagan; buning o'rniga
   odam yonida bo'lsa skuter kutadi.
 - Juda tor ilon izi joylarda (ikki to'siq orasi 1,5 m dan kam) skuter operatorni chaqiradi.
+
+# 3-bosqich: yo'lda yurish (`yol_sinovlar.py`)
+
+Trotuarlar skuter uchun moslanmagani sababli skuter **yo'lning o'ng chetida** yuradi (trotuar dasturi faqat
+eshik oldidagi oxirgi 20-50 m uchun qoladi).
+
+    cd sim/world
+    python3 yol_sinovlar.py 200   # 14 ta aniq ssenariy + 200 ta tasodifiy ko'cha
+
+| Fayl | Nima |
+|---|---|
+| `autopilot/yol.py` | **Skuter dasturi (yo'l)**: kuzatuvchi, rejalovchi, chorraha, xavfsizlik qatlami |
+| `sim/world/yol_dunyo.py` | **Ko'cha simulyatori**: polosalar, parkovka, velosiped yo'lagi, mashinalar (IDM), avtobus, velosipedchi, odamlar, svetofor, ko'ndalang oqim |
+| `sim/world/yol_sinovlar.py` | Ssenariylar va o'tish shartlari |
+
+Yo'lda `d` = o'ng bordyurdan chapga masofa (m). Ko'cha o'ngdan chapga: `[parkovka][velosiped yo'lagi][polosalar]`.
+
+## Skuter qoidalari
+
+1. **Joyi**: velosiped yo'lagi bo'lsa uning o'rtasida; bo'lmasa bordyurdan 0,8 m; parkovka bo'lsa ochilgan eshikdan
+   (1 m) tashqarida.
+2. **Tezlik**: eng ko'pi 20 km/soat; to'xtagan mashinalar qatori yonida 12 km/soat (orasidan odam chiqishi mumkin).
+3. **Aylanib o'tish** (chetda to'xtagan mashina, avtobus, to'siq, sekin velosipedchi): faqat orqadan kelayotgan
+   mashina bemalol sekinlasha olsa (oraliq ≥ v·1,5 s + farq²/(2·2 m/s²) + 8 m). Yonimizda yoki orqamizda
+   mashina o'tayotgan bo'lsa, chapga surilmay joyida kutadi. Chorrahaga 5-15 m qolganda aylanishni boshlamaydi.
+4. **Ergashish**: oldingi transportdan 1,5 s + 3 m.
+5. **Odamlar**: yo'li bizning yo'lakni kesadigan odam oldida to'xtaydi.
+6. **O'ngga buriluvchi mashina** (chorraha oldida, signal bergan): unga yo'l beradi.
+7. **Chorraha**: yashilda va mashina bo'lmasa to'xtamasdan o'tadi; chap burilish ikki bosqichda (chorrahani ikki marta
+   kesib o'tish). Chorrahadan keyin joy bo'lmasa (to'xtagan avtobus, tirbandlik), chorrahaga kirmaydi.
+   Chiroq o'zgarganda qulay to'xtay olmasa o'tib ketadi ("sariq dilemma"), lekin mashina xavfi bo'lsa doim to'xtaydi.
+   Kamera bir-ikki kadrda mashinani ko'rmay qolsa ham uni 0,6 s eslab qoladi.
+8. **Burilishning ichki tomoni**: s bo'yicha tezlik haqiqiy tezlikdan katta bo'lgani uchun tormoz masofasi to'g'rilanadi.
+
+## Simulyator
+
+- Mashinalar IDM modeli bilan yuradi, skuterni polosa ichida yoki qo'shni polosaga o'tib quvib o'tadi
+  (bir polosali yo'lda qarama-qarshi polosaga chiqib). 2% haydovchi e'tiborsiz (skuterni juda kech ko'radi),
+  25% o'ngga buriladi, ko'ndalang oqimda 3% qizilda o'tib ketadi.
+- To'xtagan mashinalar orasidan chiqadigan odamlar (25% e'tiborsiz), avtobus bekatlari, to'siqlar, velosipedchilar.
+- Kamera: oldinga 50 m, orqaga 60 m, shovqin, 3% ko'rmay qolish; har 5-marshrutda kamera 0,5-3 s o'chadi.
+
+## Natija (200 ta tasodifiy ko'cha)
+
+| Ko'rsatkich | Natija |
+|---|---|
+| Manzilga o'zi yetdi | 176/200 |
+| Qotib qolib operator chaqirdi | 24/200 (12%) |
+| Mashina / velosipedchi / to'siq / ko'ndalang mashina bilan to'qnashuv | 0 / 0 / 0 / 0 |
+| Odam bilan to'qnashuv | 1 (kocha-192, pastda) |
+| Bordyurga tegish, eshik zonasidan o'tish | 0, 0 |
+| O'rtacha tezlik | 12,3 km/soat |
+
+CI 150 ta marshrut bilan ishlaydi (kocha-192 kirmaydi), aniq ssenariylarning hammasi o'tadi.
+
+## Ochiq qolgan xavflar
+
+- **kocha-192**: e'tiborsiz odam to'xtagan mashinalar orasidan skuterning naq yonidan (0,7 m oldida) chiqib, skuterga
+  kirib ketadi. Bunda hech qanday tezlikda to'xtab bo'lmaydi; yagona yechim parkovka yonida sekinroq yurish yoki
+  ulardan uzoqroq yurish. Haqiqiy sinovda bu holat kuzatiladi.
+- Simulyatordagi ba'zi mashinalar skuterni 0,3 m yaqindan quvib o'tadi. Haqiqiy yo'lda orqa kamera va
+  ko'rinadigan chiroqlar/bayroqcha kerak.
+- Qotib qolishlarning ko'pi: bekatda turgan avtobus orqasida, tirband polosa yonida yoki chorrahadan keyin joy
+  bo'lmaganda. Skuter orqaga yura olmaydi; bu holatda operator boshqaradi.
+- Xarita (Yandex) va joylashuv hali ulanmagan: marshrut bo'laklari oldindan ma'lum deb olingan.
