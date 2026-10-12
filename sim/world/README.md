@@ -157,5 +157,50 @@ Sinov (`python3 xarita_sinovlar.py`): sun'iy shaharda (Chirchiq emas) 10 ta taso
 marshrut uzunligi tekshiriladi, keyin har marshrut tasodifiy transport bilan simulyatorda bosib o'tiladi.
 Natija: 10 tadan 10 tasi xavfsiz, 8 tasi o'zi yetdi, 2 tasida operator.
 
-Chirchiq uchun: openstreetmap.org da shahar hududini eksport qilib (`.osm`), `python3 xarita_sinovlar.py --osm chirchiq.osm`.
-Chirchiq OSM'da qanchalik to'liq chizilgani hali tekshirilmagan.
+## Chirchiq xaritasida sinov
+
+    python3 xarita_sinovlar.py --chirchiq 10   # ombordan 10 manzilga, har biri 10 marta (100 ta yetkazish)
+
+Xarita: `xaritalar/chirchiq.osm.gz` (OpenStreetMap, 2026-10-12 da overpass-api.de dan yuklangan,
+41.43-41.53 sh.k., 69.52-69.64 sh.u.; (c) OpenStreetMap hissadorlari, ODbL). Unda 2627 ta yo'l, lekin atigi
+18 ta svetofor belgilangan: haqiqatda ko'proq bo'lishi mumkin, joyida tekshirish kerak.
+
+Manzillar hozircha **taxminiy**: ombor Perekryostok supermarketi yonida, 10 ta manzil Chirchiqdagi ma'lum joylar
+(shifoxona, texnikum, poliklinika, bank, bozor, pochta, kafe, bog'cha, mahalla guzari, kutubxona). Haqiqiy ombor
+va manzillar berilganda `CHIRCHIQ_OMBOR` va `CHIRCHIQ_MANZILLAR` almashtiriladi.
+
+Natija (100 ta yetkazish, 0,7-4,7 km): **to'qnashuv 0**, 61 tasida skuter manzilga o'zi yetdi, 39 tasida
+operator chaqirildi. Operator chaqiruvining 36 tasi svetoforsiz katta ko'chani (asosan Alisher Navoiy shoh
+ko'chasi, 4 polosa) kesib o'tishda: mashinalar oqimida 2 daqiqa ichida xavfsiz oraliq topilmadi. O'rtacha
+tezlik 13 km/soat. To'liq jadval `natijalar_chirchiq.txt`, xarita `natijalar_chirchiq.svg`.
+
+### Haqiqiy xaritada topilgan xatolar (tuzatildi)
+
+Sun'iy shaharda ko'rinmagan, birinchi Chirchiq yugurishida 50 ta yetkazishdan 11 tasida to'qnashuv bo'lgan:
+
+1. **Ikki tugunli chorraha.** OSM'da ajratilgan yo'l (o'rtasida ajratuvchi bor) ikki yaqin chorraha bo'lib chizilgan
+   (orasi 1-2 m). Skuter birinchisini o'tib, ikkinchisi oldida to'xtay olmay, uning **o'rtasida** to'xtab qolardi.
+   Endi orasi 10 m dan kam o'tishlar bitta keng o'tish deb kesib o'tiladi.
+2. **To'siq chorrahadan keyin.** Chorrahadan 5-10 m keyin mashina yoki avtobus turgan bo'lsa, skuter chorraha
+   ichida to'xtab qolardi (to'xtash masofasi xato hisoblangan). Endi to'siqni aylanishni chorrahadan oldin boshlaydi
+   (velosipedchilar kabi chaproqda kesib o'tadi), yoki orqa bo'sh bo'lmasa chorrahaga kirmay kutadi.
+3. **Yondagi piyoda.** Skuter to'siq orqasida turganda, uning yonidan yo'lga tushgan odamni "orqada" deb hisoblab,
+   joyidan qo'zg'alardi. Endi yonidagi odam ham hisobga olinadi.
+4. **Ko'cha tartibi o'zgarganda** (masalan chorrahadan keyin parkovka boshlansa) skuter orqaga qaramay chapga
+   surilardi. Endi orqadan mashina kelayotgan bo'lsa, u o'tib ketguncha joyida qoladi.
+5. **Marshrut katta ko'chalarni svetoforsiz kesishdan qochadi**: chorrahada kesib o'tiladigan yo'l turiga qarab
+   qo'shimcha narx (primary 200 m, secondary 120 m, svetofor bo'lsa 4 marta kam).
+6. Faqat skuter yura oladigan asosiy tarmoqqa (tranzit yo'llar ajratib qo'ygan kichik bo'laklarga emas) manzil
+   bog'lanadi; aks holda ba'zi manzillarga yo'l topilmasdi.
+
+Simulyatorning o'zida ham tuzatildi: chorrahadagi ko'ndalang oqim ko'cha turiga qarab (hovli ko'chasida kam, katta
+ko'chada ko'p), 900 s dan uzun marshrutlarda ham mashinalar bor; velosipedchi va mashinalar avtobus orqasida
+abadiy tiqilib qolmaydi (chapdan aylanib o'tadi). 3-bosqich sinovi shu o'zgarishlardan keyin ham o'tadi
+(150 ko'cha: to'qnashuv 0, operator 11/150).
+
+### Keyingi qadamlar
+
+- Haqiqiy ombor va 10 ta manzil bilan qayta sinash.
+- Alisher Navoiy ko'chasidagi kesishuvlar: svetoforli joyni topib marshrutga belgilash yoki u yerda doim
+  operator tasdig'i bilan o'tish.
+- Chirchiqdagi svetoforlarni joyida (yoki videodan) xaritaga qo'shish.

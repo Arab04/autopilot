@@ -12,6 +12,7 @@ Skuter yo'lning o'ng chetida yuradi, shuning uchun:
 """
 
 from dataclasses import dataclass, field
+import gzip
 import heapq
 import math
 import xml.etree.ElementTree as ET
@@ -20,6 +21,7 @@ from .marshrut import Bolak, Marshrut
 
 YER_RADIUSI = 6371000.0
 POLOSA_KENGLIGI = 3.5
+YAQIN_OTISH = 10.0   # bundan qisqa yo'l bilan ajralgan ikki o'tish bitta o'tish hisoblanadi (m)
 
 # Yo'l turi -> narx ko'paytiruvchisi (None = skuter yurmaydi)
 YOL_NARXI = {
@@ -28,6 +30,17 @@ YOL_NARXI = {
     "primary": 2.5, "primary_link": 2.5, "cycleway": 0.8,
     "motorway": None, "motorway_link": None, "trunk": None, "trunk_link": None,
 }
+# Yo'l turi -> bitta polosadagi taxminiy mashina oqimi (mashina/s), kesib o'tishda kutish uchun.
+# Chirchiq uchun o'lchanmagan, shahar ko'chalari uchun odatiy qiymatlar; haqiqiy sinovlarda aniqlanadi.
+YOL_OQIMI = {
+    "living_street": 0.008, "service": 0.008, "residential": 0.015, "unclassified": 0.02,
+    "tertiary": 0.05, "tertiary_link": 0.04, "secondary": 0.08, "secondary_link": 0.05,
+    "primary": 0.11, "primary_link": 0.06, "trunk": 0.14, "trunk_link": 0.08, "motorway": 0.2,
+}
+# Katta yo'lni chorrahada kesib o'tish narxi (qo'shimcha metr): svetoforsiz uzoq kutish va xavf
+KESISH_NARXI = {"trunk": 400.0, "trunk_link": 150.0, "primary": 200.0, "primary_link": 80.0,
+                "secondary": 120.0, "secondary_link": 50.0, "tertiary": 40.0}
+SVETOFOR_KESISH = 0.25   # svetoforli chorrahada narx shuncha marta kam
 # Teg bo'lmasa, ikki tomonlama yo'ldagi jami polosalar soni
 STANDART_POLOSALAR = {"secondary": 4, "secondary_link": 2, "primary": 4, "primary_link": 2}
 
@@ -75,6 +88,7 @@ class Burilish:
     chorraha: bool
     svetofor: bool
     kesuvchi_polosalar: int       # ko'ndalang yo'lning jami polosalari
+    kesuvchi_oqim: float = 0.0    # ko'ndalang yo'ldagi taxminiy oqim (mashina/s, bitta polosada)
 
 
 @dataclass
@@ -102,15 +116,55 @@ class Xarita:
                 if not y.bir_tomonlama or y.velo_teskari:
                     self.qoshni.setdefault(b, []).append((a, y, l))
         self.yol_id = {y.id: y for y in self.yollar}
+        self._yonma = {}                  # id -> {qo'shni tugunlar} (yo'l yo'nalishi va skuterdan qat'i nazar)
+        for y in self.yollar:
+            for a, b in zip(y.tugunlar, y.tugunlar[1:]):
+                self._yonma.setdefault(a, set()).add(b)
+                self._yonma.setdefault(b, set()).add(a)
+        self._kesish_narxi = {}           # id -> (narx, shu narxni beruvchi yo'l id lari)
         lat0 = sum(t.lat for t in tugunlar.values()) / max(1, len(tugunlar))
         self._cos = math.cos(math.radians(lat0))
+        self.asosiy = self._asosiy_tarmoq()
+
+    def _asosiy_tarmoq(self):
+        """Eng katta kuchli bog'langan qism: undagi istalgan tugundan istalgan tugunga borib-qaytish mumkin.
+
+        Haqiqiy xaritada skuter yura olmaydigan yo'llar (tranzit, piyoda yo'lka) ba'zi ko'chalarni ajratib qo'yadi;
+        manzillar shu asosiy tarmoqqa bog'lanadi, aks holda yo'l topilmaydi.
+        """
+        def yetiladi(boshi, qoshni):
+            kor, st = {boshi}, [boshi]
+            while st:
+                for j in qoshni(st.pop()):
+                    if j not in kor:
+                        kor.add(j)
+                        st.append(j)
+            return kor
+
+        teskari = {}
+        for a, qator in self.qoshni.items():
+            for b, _, _ in qator:
+                teskari.setdefault(b, []).append(a)
+        qolgan, eng = set(self.qoshni) | set(teskari), set()
+        while len(qolgan) > len(eng):
+            s = next(iter(qolgan))
+            old = yetiladi(s, lambda i: (j for j, _, _ in self.qoshni.get(i, ())))
+            orqa = yetiladi(s, lambda i: teskari.get(i, ()))
+            qism = old & orqa
+            if len(qism) > len(eng):
+                eng = qism
+            qolgan -= qism
+        return eng
 
     # --- o'qish ---
     @classmethod
     def osm_dan(cls, manba):
-        """OpenStreetMap XML (.osm) fayl yo'li yoki matnidan xarita."""
+        """OpenStreetMap XML (.osm yoki .osm.gz) fayl yo'li yoki matnidan xarita."""
         if manba.lstrip().startswith("<"):
             ildiz = ET.fromstring(manba)
+        elif str(manba).endswith(".gz"):
+            with gzip.open(manba) as f:
+                ildiz = ET.parse(f).getroot()
         else:
             ildiz = ET.parse(manba).getroot()
         tugunlar, yollar = {}, []
@@ -157,10 +211,16 @@ class Xarita:
         dy = math.radians(tb.lat - ta.lat) * YER_RADIUSI
         return math.hypot(dx, dy)
 
+    @staticmethod
+    def masofa_ll(a, b):
+        """Ikki (lat, lon) nuqta orasidagi masofa (m)."""
+        dx = math.radians(b[1] - a[1]) * YER_RADIUSI * math.cos(math.radians((a[0] + b[0]) / 2))
+        return math.hypot(dx, math.radians(b[0] - a[0]) * YER_RADIUSI)
+
     def eng_yaqin_tugun(self, lat, lon):
-        """Manzilga eng yaqin, skuter yura oladigan tugun."""
+        """Manzilga eng yaqin, skuter yura oladigan (asosiy tarmoqdagi) tugun."""
         eng, m = None, math.inf
-        for i in self.qoshni:
+        for i in self.asosiy:
             t = self.tugunlar[i]
             d = (t.lat - lat) ** 2 + ((t.lon - lon) * self._cos) ** 2
             if d < m:
@@ -180,7 +240,7 @@ class Xarita:
             if n > narx.get(i, math.inf):
                 continue
             for j, y, l in self.qoshni.get(i, ()):
-                yangi = n + l * YOL_NARXI[y.turi]
+                yangi = n + l * YOL_NARXI[y.turi] + self._kesish(j, y)
                 if yangi < narx.get(j, math.inf):
                     narx[j] = yangi
                     oldingi[j] = (i, y)
@@ -199,16 +259,28 @@ class Xarita:
 
     def _tarmoqlar(self, i):
         """Tugundan chiqadigan yo'nalishlar (qo'shni tugunlar, yo'l yo'nalishidan qat'i nazar)."""
-        q = set()
-        for y in self.yollar:
-            t = y.tugunlar
-            for k, a in enumerate(t):
-                if a == i:
-                    if k > 0:
-                        q.add(t[k - 1])
-                    if k + 1 < len(t):
-                        q.add(t[k + 1])
-        return q
+        return self._yonma.get(i, set())
+
+    def _kesish(self, j, y):
+        """y yo'li bo'ylab j tuguniga kelganda, u yerda kesib o'tiladigan katta yo'l uchun qo'shimcha narx (m).
+
+        Svetoforsiz katta yo'lni kesib o'tish uzoq kutish va operator chaqiruviga olib keladi, shuning uchun
+        marshrut iloji bo'lsa svetoforli chorrahadan yoki kichik ko'chalardan yuradi.
+        """
+        if j not in self._kesish_narxi:
+            narx, kimdan = 0.0, set()
+            if len(self.tugun_yollari.get(j, ())) >= 2 and len(self._tarmoqlar(j)) >= 3:
+                for k in self.tugun_yollari[j]:
+                    n = KESISH_NARXI.get(self.yol_id[k].turi, 0.0)
+                    if n > narx:
+                        narx, kimdan = n, {k}
+                    elif n == narx and n > 0:
+                        kimdan.add(k)
+                if narx and self._svetofor_yaqinmi(j):
+                    narx *= SVETOFOR_KESISH
+            self._kesish_narxi[j] = (narx, kimdan)
+        narx, kimdan = self._kesish_narxi[j]
+        return 0.0 if y.id in kimdan else narx
 
     def _svetofor_yaqinmi(self, i, radius=25.0):
         if self.tugunlar[i].svetofor:
@@ -218,11 +290,15 @@ class Xarita:
                 return True
         return False
 
-    def _kesuvchi_polosalar(self, i, kiruvchi, chiquvchi):
+    def _kesuvchi_yollar(self, i, kiruvchi, chiquvchi):
         boshqa = [self.yol_id[k] for k in self.tugun_yollari.get(i, ()) if k not in (kiruvchi.id, chiquvchi.id)]
-        if not boshqa:
-            boshqa = [chiquvchi if chiquvchi.id != kiruvchi.id else kiruvchi]
-        return min(4, max(y.jami_polosalar() for y in boshqa))
+        return boshqa or [chiquvchi if chiquvchi.id != kiruvchi.id else kiruvchi]
+
+    def _kesuvchi_polosalar(self, i, kiruvchi, chiquvchi):
+        return min(4, max(y.jami_polosalar() for y in self._kesuvchi_yollar(i, kiruvchi, chiquvchi)))
+
+    def _kesuvchi_oqim(self, i, kiruvchi, chiquvchi):
+        return max(YOL_OQIMI.get(y.turi, 0.02) for y in self._kesuvchi_yollar(i, kiruvchi, chiquvchi))
 
     # --- skuter marshruti ---
     def skuter_marshruti(self, boshi, manzil, asosiy_d=None):
@@ -252,7 +328,8 @@ class Xarita:
             chorraha = self._chorrahami(i)
             burilishlar.append(Burilish(i, burchak, chorraha,
                                         chorraha and self._svetofor_yaqinmi(i),
-                                        self._kesuvchi_polosalar(i, yollar[k - 1], yollar[k]) if chorraha else 0))
+                                        self._kesuvchi_polosalar(i, yollar[k - 1], yollar[k]) if chorraha else 0,
+                                        self._kesuvchi_oqim(i, yollar[k - 1], yollar[k]) if chorraha else 0.0))
 
         # Har bir tugunda nima qo'yiladi: (kirishdan oldin qisqartirish, chiqishdan keyin qisqartirish, bo'laklar)
         def yol_bolagi(y, uzunlik):
@@ -267,7 +344,7 @@ class Xarita:
                 # To'g'ri kesib o'tish
                 w = br.kesuvchi_polosalar * POLOSA_KENGLIGI
                 tugun_qismlari.append((w / 2, w / 2, [Bolak("otish", w, yollar=br.kesuvchi_polosalar,
-                                                              svetofor=br.svetofor)]))
+                                                              svetofor=br.svetofor, oqim=br.kesuvchi_oqim)]))
             elif br.chorraha and th > 0:
                 # Chapga: ko'ndalang ko'chani, burchakda burilib, o'z (eski) ko'chamizni kesib o'tamiz
                 w1 = br.kesuvchi_polosalar * POLOSA_KENGLIGI
@@ -275,9 +352,9 @@ class Xarita:
                 w2 = p2 * POLOSA_KENGLIGI
                 r = asosiy_d(yol_bolagi(kir, 10.0)) + 3.5
                 tugun_qismlari.append((w2 / 2, w1 / 2, [
-                    Bolak("otish", w1, yollar=br.kesuvchi_polosalar, svetofor=br.svetofor),
+                    Bolak("otish", w1, yollar=br.kesuvchi_polosalar, svetofor=br.svetofor, oqim=br.kesuvchi_oqim),
                     Bolak("burilish", r * th, egrilik=1 / r),
-                    Bolak("otish", w2, yollar=p2, svetofor=br.svetofor)]))
+                    Bolak("otish", w2, yollar=p2, svetofor=br.svetofor, oqim=YOL_OQIMI.get(kir.turi, 0.02))]))
             elif abs(th) > math.radians(3):
                 # O'ngga burilish (chorrahada r = 6 m) yoki ko'chaning egilishi
                 r = 6.0 if br.chorraha else 20.0
@@ -305,4 +382,25 @@ class Xarita:
                 o.uzunlik += b.uzunlik
             else:
                 birlashgan.append(b)
+        birlashgan = self._yaqin_otishlarni_birlashtir(birlashgan)
         return XaritaMarshruti(tugunlar, Marshrut(birlashgan), uzunlik_xarita, burilishlar)
+
+    @staticmethod
+    def _yaqin_otishlarni_birlashtir(bolaklar, eng_kam=YAQIN_OTISH):
+        """Orasida juda qisqa yo'l bo'lgan ikki o'tishni bitta keng o'tishga aylantiradi.
+
+        Haqiqiy xaritada bir chorraha ko'pincha bir-biriga yaqin ikki tugun bo'lib chizilgan (ajratilgan yo'l,
+        siljigan ko'chalar). Ular orasida skuter to'xtay olmaydi, shuning uchun bitta o'tish deb kesib o'tadi.
+        """
+        natija = []
+        for b in bolaklar:
+            if (b.turi == "otish" and len(natija) >= 2 and natija[-1].turi == "yol"
+                    and natija[-1].uzunlik < eng_kam and natija[-2].turi == "otish"):
+                oraliq = natija.pop()
+                a = natija.pop()
+                jami = a.uzunlik + oraliq.uzunlik + b.uzunlik
+                yollar = min(6, a.yollar + b.yollar)
+                b = Bolak("otish", jami, yollar=yollar, yol_kengligi=jami / yollar,
+                          svetofor=a.svetofor or b.svetofor, oqim=max(a.oqim, b.oqim))
+            natija.append(b)
+        return natija

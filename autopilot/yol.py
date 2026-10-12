@@ -264,11 +264,13 @@ class YolRejalovchi:
                         d_ayl = max(d_ayl, self._chegaralar(o)[1])
                         oxir = max(oxir, o.s + o.uzunlik / 2)
                 masofa = birinchi.s - birinchi.uzunlik / 2 - old
-                # Aylanib o'tish chorrahaga yetmasdan tugashi kerak (chorrahaga yon tomonda kirmaymiz)
-                chorraha = next((x.boshi for x in marshrut.otishlar() if x.boshi > s), math.inf)
-                # Joyimizga qaytish uchun yon farqqa qarab 5-15 m kerak
-                qaytish = min(15.0, max(5.0, 3.0 * (d_ayl - asosiy)))
-                sigadi = oxir + c.skuter_yarim_uzunlik + 3.0 + qaytish < chorraha
+                # Aylanib o'tish to'siqdan keyingi chorrahaga yetmasdan tugashi kerak (chorrahaga yon tomonda kirmaymiz).
+                # To'siq chorrahadan keyin bo'lsa, aylanishni chorrahadan oldin boshlab, chorrahani chaproqda kesamiz
+                # (velosipedchilar kabi), aks holda chorrahadan keyin to'xtashga joy qolmaydi.
+                chorraha = next((x.boshi for x in marshrut.otishlar() if x.boshi > birinchi.s - birinchi.uzunlik / 2),
+                                math.inf)
+                # Joy yetmasa, chorrahani biroz chaproqda (o'z polosamizda) kesib o'tib, keyin qaytamiz
+                sigadi = oxir + c.skuter_yarim_uzunlik + 3.0 < chorraha - 1.0
                 if masofa < c.qaror_masofa and b.turi == "otish":
                     holat = "kutish"  # chorraha ichida aylanib o'tishni boshlamaymiz
                 elif masofa < c.qaror_masofa:
@@ -281,13 +283,20 @@ class YolRejalovchi:
                     else:
                         holat = "orqa_kutish" if d_ayl <= eng_chap and sigadi else "kutish"
 
+        if self.rejim != "aylanib" and maqsad > d + 0.3 and not self.orqa_xavfsiz(s, v, maqsad, obyektlar, d,
+                                                                                   yon_zaxira=0.3):
+            maqsad = d  # ko'cha tartibi o'zgardi (masalan parkovka boshlandi): orqadan mashina o'tib ketsin
         maqsad = self._yon_cheklov(s, d, maqsad, obyektlar)
 
         # --- Tezlik ---
         tezlik = c.max_tezlik
         lo_y, hi_y = min(d, maqsad), max(d, maqsad)
+        orqa = s - c.skuter_yarim_uzunlik - c.skuter_r - c.zaxira_odam
         for o in obyektlar:
-            if o.s + o.uzunlik / 2 < old - 0.2 or o.s - s > c.oldinga:
+            if o.s - s > c.oldinga:
+                continue
+            # Odam yonimizda bo'lsa ham hisobga olinadi: to'xtab turganimizda yonimizdan yo'lga tushishi mumkin
+            if o.s + o.uzunlik / 2 < (orqa if o.turi == "odam" else old - 0.2):
                 continue
             olo, ohi = self._chegaralar(o)
             if o.turi == "odam":
@@ -343,7 +352,7 @@ class YolRejalovchi:
                     chorraha_oxiri = max((x.oxiri for x in marshrut.otishlar() if x.oxiri < o.s), default=-math.inf)
                     joy = o.s - o.uzunlik / 2 - (chorraha_oxiri + 2 * c.skuter_yarim_uzunlik + 0.5)
                     if joy < kerak:
-                        kerak = max(c.toxtash_oraliq, joy)
+                        kerak = max(0.0, joy)
                 tezlik = min(tezlik, math.sqrt(2 * c.tormoz * max(0.0, oraliq - kerak)))
         # To'xtab turgan mashinalar qatori yonida: ular orasidan odam chiqishi mumkin, sekinroq
         for o in obyektlar:
@@ -462,11 +471,14 @@ class YolAvtopilot:
         if yol is None:
             return False
         _, asosiy, _, polosa_boshi = yol_tartibi(yol, c)
+        aylanib = self.rej.rejim == "aylanib"
         for o in self.obyektlar:
             if o.turi == "odam" or (o.vs > 1.5 and not o.toxtagan) or o.s + o.uzunlik / 2 < b.boshi:
                 continue
             if self.rej._tosuvchi(o, polosa_boshi):
                 lo, hi = self.rej._chegaralar(o)
+                if aylanib and o.s - o.uzunlik / 2 < self.rej.s_oxir and not lo < self.rej.d_aylanish < hi:
+                    continue  # aylanib o'tishni chorrahadan oldin boshladik: uning yonidan o'tamiz
                 if not lo < asosiy < hi:
                     continue
                 kerak = c.toxtash_oraliq  # chorrahadan chiqib, shu masofada to'xtab aylanamiz

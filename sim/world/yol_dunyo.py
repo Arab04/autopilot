@@ -433,22 +433,31 @@ def _transport_qadam(transport, piyodalar, kocha, sc, s_sk, d_sk, v_sk, t, rnd):
         nomzodlar = harakat + [skuter]
         p_lo, p_hi = markaz - x.eni / 2 - 0.3, markaz + x.eni / 2 + 0.3
         aylanish, ayl_oraliq = None, 50.0
+        quvish = []
         for o in nomzodlar:
             if o is x or o.yoq or not (o.turi in ("skuter", "velosiped") or o.v < 0.5):
                 continue
             oraliq = (o.s - o.uzunlik / 2) - (x.s + x.uzunlik / 2)
             olo, ohi = _band(o)
             # Quvib o'tgandan keyin ham uning oldiga 5 m chiqmaguncha polosaga qaytmaydi
-            if -o.uzunlik - x.uzunlik - 5.0 < oraliq < ayl_oraliq and olo < p_hi and ohi > p_lo:
+            if -o.uzunlik - x.uzunlik - 5.0 < oraliq < 50.0 and olo < p_hi and ohi > p_lo:
                 if o is skuter and x.etiborsiz:
                     continue  # haydovchi skuterni ko'rmayapti
-                aylanish, ayl_oraliq = o, oraliq
+                quvish.append((oraliq, o))
+                if oraliq < ayl_oraliq:
+                    aylanish, ayl_oraliq = o, oraliq
         if aylanish is not None and maqsad == markaz:
-            zaxira = 1.2 if aylanish.turi in ("skuter", "velosiped") else 0.5
-            kerak = aylanish.d + aylanish.eni / 2 + zaxira + x.eni / 2
             chegara = markaz + (y.yol_kengligi - x.eni) / 2 + 0.4
             if y.yollar == 1:
                 chegara += 2.5  # bir polosali yo'lda qarama-qarshi polosaga chiqib quvib o'tadi
+            zaxira = 1.2 if aylanish.turi in ("skuter", "velosiped") else 0.5
+            kerak = aylanish.d + aylanish.eni / 2 + zaxira + x.eni / 2
+            # Ketma-ket turganlarni (masalan avtobus orqasidagi velosipedchi) bir yo'la, eng kengiga qarab aylanadi
+            for oraliq, o in quvish:
+                zaxira = 1.2 if o.turi in ("skuter", "velosiped") else 0.5
+                k = o.d + o.eni / 2 + zaxira + x.eni / 2
+                if oraliq < ayl_oraliq + 15.0 and kerak < k <= chegara:
+                    kerak = k
             if kerak <= chegara:
                 maqsad = max(maqsad, kerak)
             elif x.polosa + 1 < y.yollar and _polosa_bosh(harakat, x, x.polosa + 1):
@@ -536,6 +545,26 @@ def _velosiped(x, harakat, skuter, piyodalar, y, c):
     a = _idm(x.v, x.v0, lider_oraliq, x.v - lider_v) if lider_oraliq < math.inf else _idm(x.v, x.v0, 1e9, 0)
     x.v = max(0.0, x.v + max(-5.0, min(1.0, a)) * DT)
     x.s += x.v * DT
+    # Oldida to'xtab turgan mashina/to'siq bo'lsa, chapdan aylanib o'tadi, keyin chetga qaytadi
+    if not hasattr(x, "d0"):
+        x.d0 = x.d
+    maqsad = x.d0
+    for o in harakat:
+        if o.turi in ("toxtagan", "tosiq") and -o.uzunlik / 2 - 2.0 < o.s - x.s < o.uzunlik / 2 + 10.0:
+            olo, ohi = _band(o)
+            if olo < x.d0 + x.eni / 2 + 0.3:
+                maqsad = max(maqsad, ohi + x.eni / 2 + 0.5)
+    if (maqsad > x.d + 0.05 and skuter.v > 0.5 and -10.0 < skuter.s - x.s < 3.0
+            and skuter.d - skuter.eni / 2 < maqsad + x.eni / 2 + 0.5):
+        maqsad = x.d  # orqa/yonda skuter kelyapti: chapga chiqmay, uni o'tkazib yuboradi
+    for o in harakat + [skuter]:
+        # Yonidagi narsaga (turgan skuter, mashina) yon tomondan urilmaydi
+        if o is not x and not o.yoq and abs(o.s - x.s) < (o.uzunlik + x.uzunlik) / 2 + 0.5 and o.d > x.d:
+            maqsad = min(maqsad, max(x.d, o.d - o.eni / 2 - x.eni / 2 - 0.3))
+    yon = 0.4 * DT
+    x.d += max(-yon, min(yon, maqsad - x.d))
+    if x.v < 0.5 and maqsad > x.d + 0.05:
+        x.v = 0.5  # sekin yurib chetga chiqadi
 
 
 def _piyoda_qadam(piyodalar, transport, kocha, s_sk, d_sk, v_sk, t):
@@ -578,6 +607,17 @@ def _kesuvchi_qadam(kesuvchi, otishlar, sc, s_sk, v_sk, t):
         if t < mm.paydo:
             continue
         b = otishlar[mm.otish]
+        if b.oxiri < s_sk - 20:
+            continue  # o'tib ketgan chorraha: endi ahamiyati yo'q
+        oxirgi = getattr(mm, "_t", None)
+        if b.boshi - s_sk > 80:
+            # Uzoqdagi chorraha: skuter yo'q, mashinalar to'g'ri yuradi. Yaqinlashganda bir yo'la suramiz (tezroq).
+            if oxirgi is None:
+                mm._t = max(mm.paydo, t - DT)
+            continue
+        if oxirgi is not None:
+            mm.x += mm.vx * (t - DT - oxirgi)
+            mm._t = None
         if b.svetofor:
             toxtash = svetofor_holati(sc, t, mm.otish)[0] and not mm.qizilda_otadi  # biz uchun yashil
         else:
@@ -671,8 +711,11 @@ def kocha_toldir(marshrut, rnd, nomi, rejim="yarim", kamera_xato=False, urug=0):
             ps = rnd.uniform(b.boshi + 30, b.oxiri - 10)
             piyodalar.append(Piyoda(ps, ps - rnd.uniform(8, 40), vd=rnd.uniform(1.1, 1.6), etiborli=rnd.random() < 0.75))
     kesuvchi = []
+    vaqt_chegarasi = max(900, marshrut.uzunlik)
     for i, b in enumerate(marshrut.otishlar()):
-        kesuvchi += mashina_oqimi(rnd, i, b.yollar, rnd.uniform(0.04, 0.16) / b.yollar, 900,
+        # Xaritadan oqim ma'lum bo'lsa (ko'cha turi bo'yicha), shu atrofida; aks holda katta ko'chadek
+        intensivlik = b.oqim * rnd.uniform(0.6, 1.5) if b.oqim > 0 else rnd.uniform(0.04, 0.16) / b.yollar
+        kesuvchi += mashina_oqimi(rnd, i, b.yollar, intensivlik, vaqt_chegarasi,
                                   qizilda_ehtimol=0.03 if b.svetofor else 0.0, yol_berish=0.0 if b.svetofor else 0.3)
     kam = []
     if kamera_xato:
@@ -680,4 +723,4 @@ def kocha_toldir(marshrut, rnd, nomi, rejim="yarim", kamera_xato=False, urug=0):
         kam = [(a, a + rnd.uniform(0.5, 3))]
     return YolSsenariy(nomi, marshrut, transport, piyodalar, oqim=rnd.uniform(0.03, 0.15),
                        kesuvchi=kesuvchi, svetofor_siljish=[rnd.uniform(0, 50) for _ in marshrut.otishlar()],
-                       kamera_ochadi=kam, vaqt_chegarasi=max(900, marshrut.uzunlik), rejim=rejim, urug=urug)
+                       kamera_ochadi=kam, vaqt_chegarasi=vaqt_chegarasi, rejim=rejim, urug=urug)
