@@ -1,24 +1,24 @@
 Xarita: Chirchiq (OpenStreetMap): 15869 tugun, 2627 yo'l (skuter yura oladigan asosiy tarmoqda 10664 tugun), 18 ta svetofor belgilangan
-Boshlanish: Ombor (Perekryostok supermarketi yoni)
+Boshlanish: Ombor (Navoiy/Markaziy bozor oldi)
 Xarita moduli sinovlari: o`tdi
 
 Har bir manzil 10 marta (har safar boshqa mashinalar, odamlar, to'xtagan mashinalar):
 
 Manzil                              Uzunlik  Chorraha O`zi yetdi  Operator  To`qn. O`rt. vaqt
-Shoshilinch tibbiy yordam markazi     3040m        23       4/10         6       0     18.4min
-Chirchiq Industrial Texnikum          2861m        21       4/10         6       0     14.8min
-1-sonli oilaviy poliklinika           2984m        27       9/10         1       0     13.8min
-Kapitalbank                           1204m         5       6/10         4       0      5.6min
-Bozor                                 4534m        31       4/10         6       0     22.3min
-22-sonli pochta bo'limi               3829m        34       8/10         2       0     16.2min
-Mig Burger                            2718m        18       5/10         5       0     13.2min
-29-sonli bolalar bog'chasi            2205m        19       4/10         6       0     10.8min
-13-mahalla guzari                     4694m        25       7/10         3       0     18.3min
-Markaziy kutubxona                     721m         7      10/10         0       0      3.2min
+Jismoniy tarbiya instituti (Troitsk)    7879m        52       3/10         7       0     39.2min
+O'rmon parki                          3780m        39       2/10         8       0     19.5min
+Chirchiq bozori                       4907m        32       8/10         2       0     20.1min
+8-kichik nohiya                       5311m        42       2/10         8       0     23.7min
+Oktyabr (Oktyabr bozori)              2375m        19       0/10        10       0      nanmin
+Pedagogika universiteti               2254m        22       9/10         1       0      9.8min
+Shoshilinch tibbiy yordam markazi     2023m        12       1/10         9       0     16.9min
+4-kichik nohiya                       2659m        28       2/10         8       0     17.1min
+Do'stlik mahallasi                    3835m        27       8/10         2       0     15.6min
+Kimyogar sport majmuasi               1309m        14      10/10         0       0      5.9min
 
-Jami: 100 ta yetkazish. O'zi yetdi: 61, operator chaqirdi: 39, to'qnashuv: 0
-O'rtacha tezlik (yetganlar): 13.1 km/soat
-Operator chaqirish sabablari: chorrahada bo'sh joy yo'q - 36, to'siqni aylanib o'tolmadi - 2, to'siq oldida kutdi - 1
+Jami: 100 ta yetkazish. O'zi yetdi: 45, operator chaqirdi: 55, to'qnashuv: 0
+O'rtacha tezlik (yetganlar): 13.5 km/soat
+Operator chaqirish sabablari: chorrahada bo'sh joy yo'q - 44, to'siq oldida kutdi - 8, to'siqni aylanib o'tolmadi - 3
 Rasm: natijalar_chirchiq.svg
 
-O'tmagan sinovlar: yo'q
+O'tmagan sinovlar: operator 55/100 marta kerak bo'ldi

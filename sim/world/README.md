@@ -165,18 +165,21 @@ Xarita: `xaritalar/chirchiq.osm.gz` (OpenStreetMap, 2026-10-12 da overpass-api.d
 41.43-41.53 sh.k., 69.52-69.64 sh.u.; (c) OpenStreetMap hissadorlari, ODbL). Unda 2627 ta yo'l, lekin atigi
 18 ta svetofor belgilangan: haqiqatda ko'proq bo'lishi mumkin, joyida tekshirish kerak.
 
-Manzillar hozircha **taxminiy**: ombor Perekryostok supermarketi yonida, 10 ta manzil Chirchiqdagi ma'lum joylar
-(shifoxona, texnikum, poliklinika, bank, bozor, pochta, kafe, bog'cha, mahalla guzari, kutubxona). Haqiqiy ombor
-va manzillar berilganda `CHIRCHIQ_OMBOR` va `CHIRCHIQ_MANZILLAR` almashtiriladi.
+Ombor va 1-5 manzilni Isroil bergan: ombor Navoiy (Markaziy) bozoriga yetmasdan; manzillar Jismoniy tarbiya
+instituti (Troitsk), O'rmon parki, Chirchiq bozori, 8-kichik nohiya, Oktyabr. 6-10 manzilni Claude tanlagan
+(pedagogika universiteti, shoshilinch yordam markazi, 4-kichik nohiya, Do'stlik mahallasi, Kimyogar sport majmuasi).
+Koordinatalar OSM dagi shu nomli joylardan olingan.
 
-Natija (100 ta yetkazish, 0,7-4,7 km): **to'qnashuv 0**, 61 tasida skuter manzilga o'zi yetdi, 39 tasida
-operator chaqirildi. Operator chaqiruvining 36 tasi svetoforsiz katta ko'chani (asosan Alisher Navoiy shoh
-ko'chasi, 4 polosa) kesib o'tishda: mashinalar oqimida 2 daqiqa ichida xavfsiz oraliq topilmadi. O'rtacha
-tezlik 13 km/soat. To'liq jadval `natijalar_chirchiq.txt`, xarita `natijalar_chirchiq.svg`.
+Natija (100 ta yetkazish, 1,3-7,9 km): **to'qnashuv 0**, 45 tasida skuter manzilga o'zi yetdi, 55 tasida
+operator chaqirildi. Operator chaqiruvining 44 tasi chorrahada: ombordan g'arbga boradigan deyarli har marshrut
+svetoforsiz Alisher Navoiy shoh ko'chasini (4 polosa) kesadi va zich oqimda 2 daqiqa ichida xavfsiz oraliq
+topilmaydi. Oktyabrga 10 tadan 0 tasi o'zi yetdi. O'rtacha tezlik 13,5 km/soat. To'liq jadval
+`natijalar_chirchiq.txt`, xarita `natijalar_chirchiq.svg`.
 
 ### Haqiqiy xaritada topilgan xatolar (tuzatildi)
 
-Sun'iy shaharda ko'rinmagan, birinchi Chirchiq yugurishida 50 ta yetkazishdan 11 tasida to'qnashuv bo'lgan:
+Sun'iy shaharda ko'rinmagan, birinchi Chirchiq yugurishida 50 ta yetkazishdan 11 tasida to'qnashuv bo'lgan
+(1-6), haqiqiy ombor bilan yana 100 tadan 1 tasida (7-8):
 
 1. **Ikki tugunli chorraha.** OSM'da ajratilgan yo'l (o'rtasida ajratuvchi bor) ikki yaqin chorraha bo'lib chizilgan
    (orasi 1-2 m). Skuter birinchisini o'tib, ikkinchisi oldida to'xtay olmay, uning **o'rtasida** to'xtab qolardi.
@@ -192,15 +195,21 @@ Sun'iy shaharda ko'rinmagan, birinchi Chirchiq yugurishida 50 ta yetkazishdan 11
    qo'shimcha narx (primary 200 m, secondary 120 m, svetofor bo'lsa 4 marta kam).
 6. Faqat skuter yura oladigan asosiy tarmoqqa (tranzit yo'llar ajratib qo'ygan kichik bo'laklarga emas) manzil
    bog'lanadi; aks holda ba'zi manzillarga yo'l topilmasdi.
+7. **Sekin velosipedchini cheksiz quvish.** Skuter oldidagi sekin velosipedchini aylanib o'tishni har safar
+   cho'zib, 100 m dan ko'p polosada yurdi va chapga burilish chorrahasiga yon tomonda kirib, ikkinchi o'tish
+   ichida to'xtab qoldi. Endi aylanish faqat turgan (yoki allaqachon yonidagi) narsa uchun cho'ziladi; chapga
+   ikki bosqichli burilishdan oldin yon tomonda turib chorrahaga kirilmaydi; keyingi o'tish yaqin bo'lsa
+   hozirgisini uning chizig'ida to'xtay oladigan tezlikda o'tadi.
+8. Aylanishdan **o'ngga qaytishda** ham orqaga qaraydi (o'ng tomondan kelayotgan velosipedchi).
 
 Simulyatorning o'zida ham tuzatildi: chorrahadagi ko'ndalang oqim ko'cha turiga qarab (hovli ko'chasida kam, katta
 ko'chada ko'p), 900 s dan uzun marshrutlarda ham mashinalar bor; velosipedchi va mashinalar avtobus orqasida
 abadiy tiqilib qolmaydi (chapdan aylanib o'tadi). 3-bosqich sinovi shu o'zgarishlardan keyin ham o'tadi
-(150 ko'cha: to'qnashuv 0, operator 11/150).
+(150 ko'cha: to'qnashuv 0, operator 17/150; avval 16/150).
 
 ### Keyingi qadamlar
 
-- Haqiqiy ombor va 10 ta manzil bilan qayta sinash.
-- Alisher Navoiy ko'chasidagi kesishuvlar: svetoforli joyni topib marshrutga belgilash yoki u yerda doim
-  operator tasdig'i bilan o'tish.
+- Alisher Navoiy ko'chasini kesish: ombor yonidagi eng yaqin svetoforli o'tishni joyida aniqlab xaritaga
+  qo'shish (OSM da yo'q), yoki u yerda doim operator tasdig'i bilan o'tish, yoki omborni ko'chaning g'arbiy
+  tomoniga qo'yish.
 - Chirchiqdagi svetoforlarni joyida (yoki videodan) xaritaga qo'shish.

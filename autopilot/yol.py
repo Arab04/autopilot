@@ -239,7 +239,10 @@ class YolRejalovchi:
             # Yo'lda yangi to'siq chiqsa, aylanish oralig'ini uzaytiramiz
             for o in tosuvchilar:
                 if tosadi(o, self.d_aylanish) or tosadi(o, asosiy):
-                    if o.s - o.uzunlik / 2 - self.s_oxir < 12:
+                    # Oldinda ketayotgan sekin velosipedchi uchun aylanishni cheksiz cho'zmaymiz (polosada uzoq
+                    # yurib, chorrahaga yon tomonda kirib qolardi): faqat turgan yoki allaqachon yonimizdagi narsa
+                    yonimizda = o.s - o.uzunlik / 2 < s + c.skuter_yarim_uzunlik + 3.0
+                    if o.s - o.uzunlik / 2 - self.s_oxir < 12 and (o.vs < 2.0 or yonimizda):
                         self.s_oxir = max(self.s_oxir, o.s + o.uzunlik / 2 + 3.0)
                         _, hi = self._chegaralar(o)
                         if hi > self.d_aylanish and hi <= eng_chap:
@@ -271,6 +274,10 @@ class YolRejalovchi:
                                 math.inf)
                 # Joy yetmasa, chorrahani biroz chaproqda (o'z polosamizda) kesib o'tib, keyin qaytamiz
                 sigadi = oxir + c.skuter_yarim_uzunlik + 3.0 < chorraha - 1.0
+                # Chorrahada keskin burilish bo'lsa (chapga ikki bosqich, o'ngga burilish), yon tomonda kirmaymiz
+                if any(x.turi == "burilish" and abs(x.egrilik) > 0.1 and x.oxiri > s
+                       and x.boshi < birinchi.s - birinchi.uzunlik / 2 for x in marshrut.bolaklar):
+                    sigadi = False
                 if masofa < c.qaror_masofa and b.turi == "otish":
                     holat = "kutish"  # chorraha ichida aylanib o'tishni boshlamaymiz
                 elif masofa < c.qaror_masofa:
@@ -283,9 +290,11 @@ class YolRejalovchi:
                     else:
                         holat = "orqa_kutish" if d_ayl <= eng_chap and sigadi else "kutish"
 
-        if self.rejim != "aylanib" and maqsad > d + 0.3 and not self.orqa_xavfsiz(s, v, maqsad, obyektlar, d,
-                                                                                   yon_zaxira=0.3):
-            maqsad = d  # ko'cha tartibi o'zgardi (masalan parkovka boshlandi): orqadan mashina o'tib ketsin
+        if self.rejim != "aylanib" and abs(maqsad - d) > 0.3 and not self.orqa_xavfsiz(s, v, maqsad, obyektlar, d,
+                                                                                        yon_zaxira=0.3):
+            # Yon tomonga o'tishdan oldin orqaga qaraymiz: chapga - mashina, o'ngga (aylanishdan qaytishda yoki
+            # ko'cha tartibi o'zgarganda) - o'ng tomondan kelayotgan velosipedchi o'tib ketsin
+            maqsad = d
         maqsad = self._yon_cheklov(s, d, maqsad, obyektlar)
 
         # --- Tezlik ---
@@ -436,6 +445,16 @@ class YolAvtopilot:
         tezlik = b.tezlik
         if holat is not None and holat != "otish":
             tezlik = min(tezlik, v_otish)
+        # Keyingi o'tish juda yaqin bo'lsa (chapga ikki bosqichli burilish), hozirgisini o'tayotganda ham
+        # uning chizig'ida to'xtay oladigan tezlikda boramiz: aks holda ikkinchi o'tish ichida to'xtab qolamiz
+        oc = self.otish.oc
+        for x in self.marshrut.otishlar():
+            chiziq = x.boshi - oc.chiziqdan - oc.skuter_old
+            if chiziq - s < -0.3 or self.otish.ruxsat.get(x.boshi):
+                continue
+            if chiziq - s < 30:
+                tezlik = min(tezlik, math.sqrt(2 * c.tormoz * max(0.0, chiziq - s)))
+            break
         if holat != "otish":
             v_burilish = self.rej.burilishga_yol_berish(s, v, self.obyektlar, self.marshrut)
             if v_burilish < tezlik:

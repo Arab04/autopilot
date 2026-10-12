@@ -24,23 +24,24 @@ from autopilot.yol import YolSozlamalari, yol_tartibi  # noqa: E402
 from yol_dunyo import ishga_tushir, kocha_toldir  # noqa: E402
 from yol_sinovlar import _xavfsiz  # noqa: E402
 
-LAT0, LON0 = 41.47, 69.58
+LAT0, LON0 = 41.47, 69.58  # sun'iy shahar shu nuqta atrofida (koordinatalar uchun)
 CHIRCHIQ_OSM = Path(__file__).with_name("xaritalar") / "chirchiq.osm.gz"
 
-# Haqiqiy manzillar hali berilmagan: ombor va 10 ta manzil Chirchiqdagi ma'lum joylar (OSM dan), taxminiy tanlov.
-CHIRCHIQ_OMBOR = ("Ombor (Perekryostok supermarketi yoni)", 41.46639, 69.58461)
+# Ombor va 1-5 manzilni Isroil bergan (2026-10-12), 6-10 ni Claude tanlagan. Koordinatalar OSM dan.
+# Ombor: "Navoiy bozoriga yetmasdan" - Markaziy bozor (Tsentralniy rinok) dan ~100 m g'arbda deb olingan.
+CHIRCHIQ_OMBOR = ("Ombor (Navoiy/Markaziy bozor oldi)", 41.47350, 69.59000)
 CHIRCHIQ_MANZILLAR = [
+    ("Jismoniy tarbiya instituti (Troitsk)", 41.43607, 69.53586),
+    ("O'rmon parki", 41.46567, 69.56722),
+    ("Chirchiq bozori", 41.45864, 69.54696),
+    ("8-kichik nohiya", 41.46214, 69.55030),
+    ("Oktyabr (Oktyabr bozori)", 41.48526, 69.57855),
+    ("Pedagogika universiteti", 41.47080, 69.57417),
     ("Shoshilinch tibbiy yordam markazi", 41.48515, 69.58598),
-    ("Chirchiq Industrial Texnikum", 41.48274, 69.59076),
-    ("1-sonli oilaviy poliklinika", 41.48790, 69.58968),
-    ("Kapitalbank", 41.46135, 69.57489),
-    ("Bozor", 41.45864, 69.54696),
-    ("22-sonli pochta bo'limi", 41.48609, 69.57609),
-    ("Mig Burger", 41.48615, 69.59827),
-    ("29-sonli bolalar bog'chasi", 41.47662, 69.57887),
-    ("13-mahalla guzari", 41.46321, 69.55036),
-    ("Markaziy kutubxona", 41.47210, 69.58910),
-]  # sun'iy shahar shu nuqta atrofida (koordinatalar uchun)
+    ("4-kichik nohiya", 41.49342, 69.58493),
+    ("Do'stlik mahallasi", 41.49540, 69.60669),
+    ("Kimyogar sport majmuasi", 41.46510, 69.58491),
+]
 
 
 def _ll(x, y):
@@ -292,9 +293,9 @@ def chirchiq(takror):
         print(f"O'rtacha tezlik (yetganlar): {sum(x[2].ortacha_kmh for x in yetdi) / len(yetdi):.1f} km/soat")
     if sabablar:
         print("Operator chaqirish sabablari: " + ", ".join(f"{s_} - {n_}" for s_, n_ in sorted(sabablar.items(), key=lambda z: -z[1])))
-    # Haqiqiy xaritada operator chaqiruvlari ko'p (katta yo'llarni svetoforsiz kesish), shuning uchun bu chegara
-    # faqat yomonlashishdan himoya: asosiy talab - to'qnashuv yo'q.
-    if yordam > 0.5 * jami:
+    # Haqiqiy xaritada operator chaqiruvlari ko'p (ombordan g'arbga har yetkazish svetoforsiz Alisher Navoiy
+    # ko'chasini kesadi), shuning uchun bu chegara faqat yomonlashishdan himoya: asosiy talab - to'qnashuv yo'q.
+    if yordam > 0.65 * jami:
         xatolar.append(f"operator {yordam}/{jami} marta kerak bo'ldi")
     fayl = Path(__file__).with_name("natijalar_chirchiq.svg")
     _rasm(xarita, natijalar, fayl)
