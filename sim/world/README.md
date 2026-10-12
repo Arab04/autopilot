@@ -135,3 +135,27 @@ CI 150 ta marshrut bilan ishlaydi (kocha-192 kirmaydi), aniq ssenariylarning ham
 - Qotib qolishlarning ko'pi: bekatda turgan avtobus orqasida, tirband polosa yonida yoki chorrahadan keyin joy
   bo'lmaganda. Skuter orqaga yura olmaydi; bu holatda operator boshqaradi.
 - Xarita (Yandex) va joylashuv hali ulanmagan: marshrut bo'laklari oldindan ma'lum deb olingan.
+
+# 4-bosqich: xaritadan marshrut (`xarita_sinovlar.py`)
+
+`autopilot/xarita.py` ikki nuqta (kenglik, uzunlik) orasida skuter yo'lini topadi va uni dastur tushunadigan
+bo'laklarga (yo'l, burilish, chorraha) aylantiradi.
+
+**Nega hozir OpenStreetMap:** Yandex xaritalarining bepul API shartlari pullik loyihada ishlatishni, ma'lumotni
+saqlashni (oflayn nusxa) va transportni kuzatish tizimini taqiqlaydi, marshrut esa faqat Yandex MapKit ilovasida
+beriladi ([shartlar](https://yandex.ru/legal/maps_api/), 4.1.1, 5.1.3, 5.1.5, 6.2.1). OSM bepul, tijoratda
+ishlatish va oflayn saqlash mumkin (ODbL, mualliflik ko'rsatiladi). Modul manbaga bog'lanmagan: Yandex tijorat
+litsenziyasi olinsa, faqat o'quvchi funksiya qo'shiladi.
+
+Qoidalar:
+- motorway/trunk ishlatilmaydi, primary qimmatroq (kichik ko'chalar afzal), bir tomonlama ko'chaga teskari kirilmaydi;
+- 3 va undan ko'p tarmoqli tugun chorraha: to'g'ri kesib o'tish (`otish`), o'ngga r = 6 m burilish,
+  chapga ikki bosqich (ko'ndalang ko'cha, burchakda burilish, o'z ko'chamiz);
+- svetofor (tugunda yoki 25 m ichida), polosalar soni, velosiped yo'lagi va parkovka OSM teglaridan olinadi.
+
+Sinov (`python3 xarita_sinovlar.py`): sun'iy shaharda (Chirchiq emas) 10 ta tasodifiy manzil: yo'l qoidalari va
+marshrut uzunligi tekshiriladi, keyin har marshrut tasodifiy transport bilan simulyatorda bosib o'tiladi.
+Natija: 10 tadan 10 tasi xavfsiz, 8 tasi o'zi yetdi, 2 tasida operator.
+
+Chirchiq uchun: openstreetmap.org da shahar hududini eksport qilib (`.osm`), `python3 xarita_sinovlar.py --osm chirchiq.osm`.
+Chirchiq OSM'da qanchalik to'liq chizilgani hali tekshirilmagan.

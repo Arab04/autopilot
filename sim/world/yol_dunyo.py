@@ -631,7 +631,11 @@ def tasodifiy_kocha(urug, rejim="yarim", kamera_xato=False):
             p2 = min(4, oldingi.yollar * 2)
             bolaklar.append(Bolak("otish", p2 * 3.5, yollar=p2, svetofor=svet))
         bolaklar.append(tasodifiy_yol_bolagi(rnd, rnd.uniform(100, 220)))
-    marshrut = Marshrut(bolaklar)
+    return kocha_toldir(Marshrut(bolaklar), rnd, f"kocha-{urug}", rejim, kamera_xato, urug)
+
+
+def kocha_toldir(marshrut, rnd, nomi, rejim="yarim", kamera_xato=False, urug=0):
+    """Berilgan marshrut (masalan xaritadan tuzilgan) ko'chalarini tasodifiy transport, odam va oqim bilan to'ldiradi."""
     transport, piyodalar = [], []
     keyingi = 1
     for b in marshrut.bolaklar:
@@ -663,7 +667,7 @@ def tasodifiy_kocha(urug, rejim="yarim", kamera_xato=False):
             keyingi += 1
             x += rnd.uniform(30, 90)
         # Yo'lni kesib o'tuvchi odamlar
-        for _ in range(rnd.randint(0, 3)):
+        for _ in range(rnd.randint(0, 3) if b.uzunlik > 60 else 0):
             ps = rnd.uniform(b.boshi + 30, b.oxiri - 10)
             piyodalar.append(Piyoda(ps, ps - rnd.uniform(8, 40), vd=rnd.uniform(1.1, 1.6), etiborli=rnd.random() < 0.75))
     kesuvchi = []
@@ -674,6 +678,6 @@ def tasodifiy_kocha(urug, rejim="yarim", kamera_xato=False):
     if kamera_xato:
         a = rnd.uniform(15, 60)
         kam = [(a, a + rnd.uniform(0.5, 3))]
-    return YolSsenariy(f"kocha-{urug}", marshrut, transport, piyodalar, oqim=rnd.uniform(0.03, 0.15),
+    return YolSsenariy(nomi, marshrut, transport, piyodalar, oqim=rnd.uniform(0.03, 0.15),
                        kesuvchi=kesuvchi, svetofor_siljish=[rnd.uniform(0, 50) for _ in marshrut.otishlar()],
-                       kamera_ochadi=kam, vaqt_chegarasi=900, rejim=rejim, urug=urug)
+                       kamera_ochadi=kam, vaqt_chegarasi=max(900, marshrut.uzunlik), rejim=rejim, urug=urug)
