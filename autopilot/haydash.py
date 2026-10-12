@@ -3,9 +3,9 @@
 Bu kod keyinchalik skuterning o'ziga o'rnatiladi, shuning uchun u simulyatorga
 bog'liq emas: faqat datchiklardan kelgan ma'lumotni oladi va buyruq qaytaradi.
 
-Koordinatalar trotuar bo'ylab: s = marshrut bo'ylab masofa (m), d = markaz
-chiziqdan yon tomonga siljish (m, chap +). Burilish va chorrahalar keyingi
-versiyada qo'shiladi.
+Koordinatalar marshrut bo'ylab: s = marshrut bo'ylab masofa (m), d = markaz
+chiziqdan yon tomonga siljish (m, chap +). Burilishlar va yo'lni kesib o'tish
+`marshrut.py` va `otish.py` da; hammasini `Avtopilot` klassi birlashtiradi.
 """
 
 from dataclasses import dataclass, field
@@ -37,6 +37,8 @@ class Sozlamalar:
     qadam: float = 0.5
     kamera_eskirdi: float = 0.3       # kameradan shuncha vaqt ma'lumot kelmasa = xato (s)
     reaksiya: float = 0.15            # buyruq bajarilish kechikishi (s)
+    afzal_d: float = -0.4             # o'ng tomonda yurish qoidasi: markazdan o'ngroq (m)
+    yon_tezlanish: float = 0.8        # burilishda maksimal yon tezlanish (m/s^2)
 
 
 @dataclass
@@ -176,10 +178,13 @@ class Rejalovchi:
             t += c.qadam
         return eng_kam, birinchi_xato
 
-    def _narx(self, d1, d2, gap):
-        narx = abs(d1) + 0.5 * abs(d2) + abs(d1 - self.oldingi_d) * 2.0 + max(0.0, 1.0 - gap) * 2.0
-        # Bir tomonni tanlagan bo'lsak, boshqa tomonga sakramaymiz (shovqindan tebranish bo'lmasin)
-        if abs(self.oldingi_d) > 0.2 and d1 * self.oldingi_d < 0:
+    def _narx(self, d1, d2, gap, tosiq_oldinda):
+        af = self.c.afzal_d
+        narx = (abs(d1 - af) + 0.5 * abs(d2 - af) + abs(d1 - self.oldingi_d) * 1.5
+                + max(0.0, 1.0 - gap) * 2.0)
+        # Oldinda to'siq bo'lsa va bir tomonni tanlagan bo'lsak, boshqa tomonga sakramaymiz
+        # (kamera shovqinidan tebranish bo'lmasin). Yo'l bo'sh bo'lsa, o'ng tomonga qaytamiz.
+        if tosiq_oldinda and abs(self.oldingi_d - af) > 0.2 and (d1 - af) * (self.oldingi_d - af) < 0:
             narx += 5.0
         return narx
 
@@ -189,18 +194,19 @@ class Rejalovchi:
         Avval bitta yo'lakli variantlar; topilmasa, ikki bosqichli (ilon izi) variantlar.
         """
         eng_yaxshi = None
+        tosiq_oldinda = any(-1 < o.s - s < 12 and abs(o.d - d) < 2.0 for o in yaqin)
         for dv in self.variantlar:
             yol = (dv, math.inf, dv)
             gap = self._bosh_joy(s, d, yol, v, yaqin, otish)[0]
             if gap < 0:
                 continue
-            narx = self._narx(dv, dv, gap)
+            narx = self._narx(dv, dv, gap, tosiq_oldinda)
             if eng_yaxshi is None or narx < eng_yaxshi[0]:
                 eng_yaxshi = (narx, yol)
         if eng_yaxshi is not None:
             return eng_yaxshi
         for d1 in self.variantlar[::2]:
-            for x in (1.5, 3.0):
+            for x in (1.5, 3.0, 5.0, 7.0):
                 for d2 in self.variantlar[::2]:
                     if d2 == d1:
                         continue
@@ -208,7 +214,7 @@ class Rejalovchi:
                     gap = self._bosh_joy(s, d, yol, v, yaqin, otish)[0]
                     if gap < 0:
                         continue
-                    narx = self._narx(d1, d2, gap) + 1.0
+                    narx = self._narx(d1, d2, gap, tosiq_oldinda) + 1.0
                     if eng_yaxshi is None or narx < eng_yaxshi[0]:
                         eng_yaxshi = (narx, yol)
         return eng_yaxshi
@@ -235,13 +241,22 @@ class Rejalovchi:
             eng_yaxshi = self._tanla(s, d, 0.3, yaqin, otish=c.sekin_otish_masofasi)
             sekin = eng_yaxshi is not None
         if eng_yaxshi is None:
-            # Hech qaysi yo'l xavfsiz emas: o'z yo'lagida qolib, xavfli nuqtadan oldin to'xtaymiz
-            yol = (d, math.inf, d)
-            _, xato_x = self._bosh_joy(s, d, yol, 0.5, yaqin)
+            # Hech qaysi yo'l xavfsiz emas: eng ko'p bo'sh joy qoladigan yo'lakka buriladi (yaqinlashganda
+            # kamera aniqroq ko'radi va yo'l ochilishi mumkin), xavfli nuqtadan oldin to'xtaymiz
+            eng = None
+            for dv in self.variantlar:
+                gap, xato_x = self._bosh_joy(s, d, (dv, math.inf, dv), 0.5, yaqin)
+                if eng is None or (xato_x, gap) > (eng[1], eng[2]):
+                    eng = (dv, xato_x, gap)
+            d_m, xato_x, _ = eng
+            odam_yonda = any(o.turi == "odam" and abs(o.s - s) < 2.5 for o in yaqin)
+            if xato_x < 3.0 or odam_yonda:
+                d_m = d  # xavf yaqin yoki yonda odam: burilmaymiz (burilsak orqa qismi yonga suriladi)
+                xato_x = self._bosh_joy(s, d, (d, math.inf, d), 0.5, yaqin)[1]
             masofa = max(0.0, xato_x - 0.3)
-            tezlik = min(c.max_tezlik, math.sqrt(2 * c.tormoz * masofa), self._ergashish(s, d, d, yaqin))
-            self.oldingi_d = d
-            return Buyruq(tezlik if tezlik > 0.05 else 0.0, d, c.tormoz, "kutish")
+            tezlik = min(c.max_tezlik, math.sqrt(2 * c.tormoz * masofa), self._ergashish(s, d, d_m, yaqin))
+            self.oldingi_d = d_m
+            return Buyruq(tezlik if tezlik > 0.05 else 0.0, d_m, c.tormoz, "kutish")
         yol = eng_yaxshi[1]
         self.oldingi_d = yol[0]
         # Odam zaxira masofadan yaqin turgan bo'lsa (yonimizdan o'tayotgan bo'lsa), u o'tib ketguncha kutamiz:
@@ -295,8 +310,8 @@ class YordamNazoratchisi:
         self.kutish, self.min_siljish = kutish, min_siljish
         self.boshlanish = None  # (vaqt, s)
 
-    def tekshir(self, t, s):
+    def tekshir(self, t, s, kutish=None):
         if self.boshlanish is None or s - self.boshlanish[1] >= self.min_siljish:
             self.boshlanish = (t, s)
             return False
-        return t - self.boshlanish[0] > self.kutish
+        return t - self.boshlanish[0] > (kutish or self.kutish)
