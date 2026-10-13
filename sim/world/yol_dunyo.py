@@ -77,6 +77,7 @@ class YolSsenariy:
     vaqt_chegarasi: float = 600.0
     rejim: str = "yarim"
     urug: int = 0
+    joylashuv: object = None        # joylashuv_dunyo.JoylashuvSharoiti: skuter joyini datchiklardan baholaydi
 
 
 @dataclass
@@ -99,6 +100,15 @@ class YolNatija:
     aylanib_otish: int
     orqa_kutish_s: float
     iz: dict
+    chorraha_ichida: int = 0  # chorraha (o'tish joyi) ichida to'xtab qolish
+    # 5-bosqich: joylashuv filtri (sc.joylashuv berilganda)
+    joy_max_s: float = 0.0    # marshrut bo'ylab eng katta xato (m)
+    joy_max_d: float = 0.0    # yon tomonga eng katta xato (m)
+    joy_chiziq: float = 0.0   # chorrahaga 15 m qolganda marshrut bo'ylab eng katta xato (m)
+    joy_izchil: float = 1.0   # vaqt ulushi: haqiqiy xato filtr aytgan 3 sigma ichida
+    joy_rad: int = 0          # rad etilgan o'lchovlar (GPS sakrashi, kamera yanglishishi)
+    joy_tiklash: int = 0
+    joy_k_xato: float = 0.0   # odometr masshtabini baholash xatosi (oxirida)
 
 
 def svetofor_holati(sc, t, i):
@@ -179,6 +189,21 @@ def ishga_tushir(sc: YolSsenariy, c: YolSozlamalari = None):
     iz = {k: [] for k in ("t", "s", "d", "v", "holat")}
     op_vaqt, op_javob = None, None
     yordam = False
+    # 5-bosqich: skuter joyini o'zi baholaydi (aks holda simulyator aniq joyni beradi)
+    joy = dat = None
+    if sc.joylashuv is not None:
+        from autopilot.joylashuv import Joylashuv, MarshrutChizigi
+        from joylashuv_dunyo import Datchiklar
+        chiziq = MarshrutChizigi(m)
+        dat = Datchiklar(sc.joylashuv, m, chiziq, kocha.yol, sc.urug)
+        joy = Joylashuv(m, s, d, chiziq=chiziq)
+        for kk in ("s_tax", "d_tax", "sig_s", "sig_d"):
+            iz[kk] = []
+    s_p, d_p, v_odo = s, d, 0.0
+    joy_max_s = joy_max_d = joy_chiziq = 0.0
+    izchil = izchil_jami = 0
+    ichida = 0
+    ichida_edi = False
 
     def yangi_mashina(s0, p, v0):
         nonlocal keyingi_id
@@ -201,7 +226,7 @@ def ishga_tushir(sc: YolSsenariy, c: YolSozlamalari = None):
                     transport.append(yangi_mashina(x, p, v0))
 
     while t < sc.vaqt_chegarasi and s < m.uzunlik:
-        if ap.yordam_kerakmi(t, s):
+        if ap.yordam_kerakmi(t, s if joy is None else joy.s):
             yordam = True
             break
         yol = kocha.yol(s)
@@ -224,6 +249,23 @@ def ishga_tushir(sc: YolSsenariy, c: YolSozlamalari = None):
         # --- Datchiklar va dastur (10 Hz) ---
         if qadam % 2 == 0:
             ishlaydi = not any(a <= t < b for a, b in sc.kamera_ochadi)
+            if joy is not None:
+                if qadam % 4 == 0:
+                    g = dat.gps(t, s, d)
+                    if g is not None:
+                        joy.gps(*g)
+                if ishlaydi:
+                    z = dat.chet(s, d)
+                    if z is not None:
+                        joy.chet(*z)
+                    z = dat.belgi(s)
+                    if z is not None:
+                        joy.belgi(*z)
+                s_p, d_p = joy.rejalash_joyi()
+            else:
+                s_p, d_p = s, d
+            # Kamera obyektlarni skuterga nisbatan ko'radi: dastur ularni o'z taxminiy joyiga qo'shadi
+            sm, dm = s_p - s, d_p - d
             aniq = None
             if ishlaydi:
                 aniq = []
@@ -241,7 +283,7 @@ def ishga_tushir(sc: YolSsenariy, c: YolSozlamalari = None):
                     if x.burilish and x.signal:
                         b = next((b for b in kocha.otishlar if 0 < b.boshi - x.s < 45 and b.boshi in kocha.togri_otish), None)
                         burilish = 1 if b is not None else 0
-                    aniq.append(YolObyekt(x.s + rnd.gauss(0, 0.1 + 0.01 * m_), x.d + rnd.gauss(0, 0.05 + 0.004 * m_),
+                    aniq.append(YolObyekt(x.s + sm + rnd.gauss(0, 0.1 + 0.01 * m_), x.d + dm + rnd.gauss(0, 0.05 + 0.004 * m_),
                                           x.v + rnd.gauss(0, 0.3), rnd.gauss(0, 0.1), x.uzunlik, x.eni, turi,
                                           burilish, x.id))
                 for p in piyodalar:
@@ -252,7 +294,7 @@ def ishga_tushir(sc: YolSsenariy, c: YolSozlamalari = None):
                     ds = p.s - s
                     if not -10 < ds < OLD_KAMERA or rnd.random() < 0.05:
                         continue
-                    aniq.append(YolObyekt(p.s + rnd.gauss(0, 0.1), p.d + rnd.gauss(0, 0.08), rnd.gauss(0, 0.1),
+                    aniq.append(YolObyekt(p.s + sm + rnd.gauss(0, 0.1), p.d + dm + rnd.gauss(0, 0.08), rnd.gauss(0, 0.1),
                                           (p.vd if p.yurmoqda else 0.0) + rnd.gauss(0, 0.1), 0.6, 0.6, "odam",
                                           0, p.id))
             km = []
@@ -261,7 +303,10 @@ def ishga_tushir(sc: YolSsenariy, c: YolSozlamalari = None):
             javob = None
             if op_vaqt is not None and t >= op_vaqt:
                 javob, op_vaqt = op_javob, None
-            buyruq = ap.rejalash(t, s, d, v, aniq, km, svet, javob)
+            if joy is None:
+                buyruq = ap.rejalash(t, s, d, v, aniq, km, svet, javob)
+            else:
+                buyruq = ap.rejalash(t, s_p, d_p, joy.tezlik(v_odo), aniq, km, svet, javob, joylashuv=joy)
             if ap.operator_sorovi and op_vaqt is None and javob is None:
                 op_vaqt = t + OPERATOR_KECHIKISHI
                 haqiqiy = [KorilganMashina(x.polosa, x.x, x.vx) for x in kesuvchi if x.otish == oi and t >= x.paydo]
@@ -280,17 +325,25 @@ def ishga_tushir(sc: YolSsenariy, c: YolSozlamalari = None):
         if yakuniy.holat == "orqa_kutish":
             orqa_kutish += DT
         # --- Skuter harakati ---
-        if yakuniy.tezlik > v:
-            v = min(yakuniy.tezlik, v + c.tezlanish * DT)
+        # Motor g'ildirak tezligini boshqaradi: g'ildirak yeyilgan bo'lsa, haqiqiy tezlik biroz boshqacha
+        v_kerak = yakuniy.tezlik if joy is None else yakuniy.tezlik * dat.k / joy.k
+        if v_kerak > v:
+            v = min(v_kerak, v + c.tezlanish * DT)
         else:
-            v = max(yakuniy.tezlik, v - yakuniy.tormoz * DT)
+            v = max(v_kerak, v - yakuniy.tormoz * DT)
         kappa = m.egrilik(s)
         s_tezlik = v * math.cos(psi) / max(0.3, 1 - kappa * d)
-        psi_kerak = boshqaruv_burchagi(d, yakuniy.d_maqsad, v)
+        # Rul boshqaruvi skuter o'zi bilgan joy va yo'nalish bo'yicha ishlaydi
+        if joy is None:
+            d_b, psi_b, kappa_b, s_tezlik_b = d, psi, kappa, s_tezlik
+        else:
+            d_b, psi_b, kappa_b = joy.rejalash_joyi()[1], joy.psi, m.egrilik(min(max(joy.s, 0.0), m.uzunlik - 1e-6))
+            s_tezlik_b = v * math.cos(psi_b) / max(0.3, 1 - kappa_b * d_b)
+        psi_kerak = boshqaruv_burchagi(d_b, yakuniy.d_maqsad, v)
         chek = math.atan2(c.yon_otish_tezligi, max(v, 0.5))
         psi_kerak = max(-chek, min(chek, psi_kerak))
         max_omega = (v / 1.05) * math.tan(math.radians(20)) if v > 0.05 else 0.0
-        omega = (psi_kerak - psi) * 3 + kappa * s_tezlik
+        omega = (psi_kerak - psi_b) * 3 + kappa_b * s_tezlik_b
         omega = max(-max_omega, min(max_omega, omega))
         psi += (omega - kappa * s_tezlik) * DT
         s += s_tezlik * DT
@@ -302,6 +355,22 @@ def ishga_tushir(sc: YolSsenariy, c: YolSozlamalari = None):
             d = c.skuter_r + 0.02
         else:
             chetda = False
+        if joy is not None:
+            v_odo = dat.odometr(v)
+            joy.bashorat(DT, v_odo, dat.giro(omega, DT))
+            es, ed = s - joy.s, d - joy.d
+            joy_max_s, joy_max_d = max(joy_max_s, abs(es)), max(joy_max_d, abs(ed))
+            if any(0 < b.boshi - s < 15 for b in kocha.otishlar):
+                joy_chiziq = max(joy_chiziq, abs(es))
+            izchil_jami += 1
+            if abs(es) <= 3 * joy.sigma_s + 0.05 and abs(ed) <= 3 * joy.sigma_d + 0.02:
+                izchil += 1
+        # Chorraha ichida to'xtab qolish (mashinalar yo'lida)
+        old_s, orqa_s = s + c.skuter_yarim_uzunlik + c.skuter_r, s - c.skuter_yarim_uzunlik - c.skuter_r
+        ichkarida = v < 0.05 and any(old_s > b.boshi + 0.3 and orqa_s < b.oxiri - 0.3 for b in kocha.otishlar)
+        if ichkarida and not ichida_edi:
+            ichida += 1
+        ichida_edi = ichkarida
         # --- Transport ---
         _transport_qadam(transport, piyodalar, kocha, sc, s, d, v, t, rnd)
         _piyoda_qadam(piyodalar, transport, kocha, s, d, v, t)
@@ -359,13 +428,22 @@ def ishga_tushir(sc: YolSsenariy, c: YolSozlamalari = None):
                     else:
                         tegib.discard(("k", i))
         if qadam % 4 == 0:
-            for kk, val in zip(iz, (t, s, d, v, yakuniy.holat)):
+            qiymatlar = (t, s, d, v, yakuniy.holat)
+            if joy is not None:
+                qiymatlar += (joy.s, joy.d, joy.sigma_s, joy.sigma_d)
+            for kk, val in zip(iz, qiymatlar):
                 iz[kk].append(val)
         t += DT
         qadam += 1
-    return YolNatija(sc.nomi, s >= m.uzunlik, t, mash_toq, odam_toq, velo_toq, tosiq_toq, kes_toq, yaqin_otish,
-                     eshik, chetga, favq, yordam, ap.otish.operator_sorovlari, (s / t * 3.6) if t > 0 else 0.0,
-                     aylanish, orqa_kutish, iz)
+    n = YolNatija(sc.nomi, s >= m.uzunlik, t, mash_toq, odam_toq, velo_toq, tosiq_toq, kes_toq, yaqin_otish,
+                  eshik, chetga, favq, yordam, ap.otish.operator_sorovlari, (s / t * 3.6) if t > 0 else 0.0,
+                  aylanish, orqa_kutish, iz, ichida)
+    if joy is not None:
+        n.joy_max_s, n.joy_max_d, n.joy_chiziq = joy_max_s, joy_max_d, joy_chiziq
+        n.joy_izchil = izchil / max(1, izchil_jami)
+        n.joy_rad, n.joy_tiklash = sum(joy.rad.values()), joy.tiklash
+        n.joy_k_xato = abs(joy.k - dat.k)
+    return n
 
 
 def _parkovka_ortida(p, transport):
