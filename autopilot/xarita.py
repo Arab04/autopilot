@@ -18,6 +18,7 @@ import math
 import xml.etree.ElementTree as ET
 
 from .marshrut import Bolak, Marshrut
+from .otish import kutish_bahosi
 
 YER_RADIUSI = 6371000.0
 POLOSA_KENGLIGI = 3.5
@@ -41,6 +42,9 @@ YOL_OQIMI = {
 KESISH_NARXI = {"trunk": 400.0, "trunk_link": 150.0, "primary": 200.0, "primary_link": 80.0,
                 "secondary": 120.0, "secondary_link": 50.0, "tertiary": 40.0}
 SVETOFOR_KESISH = 0.25   # svetoforli chorrahada narx shuncha marta kam
+# Marshrut variantlarini solishtirish: kutish soniyasi necha metr yo'lga teng (skuterning o'rtacha tezligi)
+KUTISH_METR = 4.5
+MARSHRUT_VARIANTLARI = 6
 # Teg bo'lmasa, ikki tomonlama yo'ldagi jami polosalar soni
 STANDART_POLOSALAR = {"secondary": 4, "secondary_link": 2, "primary": 4, "primary_link": 2}
 
@@ -228,8 +232,12 @@ class Xarita:
         return eng
 
     # --- yo'l topish ---
-    def yol_top(self, boshi, manzil):
-        """Dijkstra: tugunlar ro'yxati va har qadamdagi Yol. Topilmasa None."""
+    def yol_top(self, boshi, manzil, jarima=None):
+        """Dijkstra: tugunlar ro'yxati va har qadamdagi Yol. Topilmasa None.
+
+        jarima: {tugun: qo'shimcha narx (m)} - oldingi variantda uzoq kutilgan chorrahalarni chetlab o'tish uchun.
+        """
+        jarima = jarima or {}
         navbat = [(0.0, boshi)]
         narx = {boshi: 0.0}
         oldingi = {}
@@ -240,7 +248,7 @@ class Xarita:
             if n > narx.get(i, math.inf):
                 continue
             for j, y, l in self.qoshni.get(i, ()):
-                yangi = n + l * YOL_NARXI[y.turi] + self._kesish(j, y)
+                yangi = n + l * YOL_NARXI[y.turi] + self._kesish(j, y) + jarima.get(j, 0.0)
                 if yangi < narx.get(j, math.inf):
                     narx[j] = yangi
                     oldingi[j] = (i, y)
@@ -307,12 +315,42 @@ class Xarita:
         asosiy_d(Bolak) -> skuterning bordyurdan masofasi (chap burilish radiusi uchun); berilmasa 0,8 m.
         """
         a = self.eng_yaqin_tugun(*boshi)
-        b = self.eng_yaqin_tugun(*manzil)
-        topildi = self.yol_top(a, b) if a is not None and b is not None and a != b else None
+        b_ = self.eng_yaqin_tugun(*manzil)
+        topildi = self.yol_top(a, b_) if a is not None and b_ is not None and a != b_ else None
         if topildi is None:
             return None
-        tugunlar, yollar = topildi
-        return self.marshrutga_aylantir(tugunlar, yollar, asosiy_d or (lambda bolak: 0.8))
+        asosiy_d = asosiy_d or (lambda bolak: 0.8)
+        # Bir nechta variant: har safar eng uzoq kutiladigan chorrahaga jarima qo'yib, qayta qidiramiz va
+        # (yo'l narxi + kutilgan kutish) eng kichik bo'lganini olamiz. Masalan, 4 polosali katta ko'chani
+        # chapga burilib (ikki marta) kesish o'rniga to'g'ri kesib o'tadigan yo'lni topadi.
+        eng, eng_narx, jarima = None, math.inf, {}
+        for _ in range(MARSHRUT_VARIANTLARI):
+            xm = self.marshrutga_aylantir(*topildi, asosiy_d)
+            kutishlar = [(self.kutish_bahosi(b), b) for b in xm.marshrut.otishlar()]
+            narx = self._yol_narxi(*topildi) + KUTISH_METR * sum(k for k, _ in kutishlar)
+            if narx < eng_narx - 1e-6:
+                eng, eng_narx = xm, narx
+            yangi = False
+            for k, b in kutishlar:
+                if k > 20.0:
+                    for i in b.tugunlar:
+                        if jarima.get(i, 0.0) < KUTISH_METR * k:
+                            jarima[i] = KUTISH_METR * k
+                            yangi = True
+            if not yangi:
+                break
+            topildi = self.yol_top(a, b_, jarima)
+            if topildi is None:
+                break
+        return eng
+
+    def _yol_narxi(self, tugunlar, yollar):
+        return sum(self.masofa(i, j) * YOL_NARXI[y.turi] + self._kesish(j, y)
+                   for i, j, y in zip(tugunlar, tugunlar[1:], yollar))
+
+    @staticmethod
+    def kutish_bahosi(b):
+        return kutish_bahosi(b)
 
     def marshrutga_aylantir(self, tugunlar, yollar, asosiy_d):
         """Tugunlar zanjirini to'g'ri yo'l bo'laklari, burilishlar va chorrahalarga aylantiradi."""
@@ -344,7 +382,8 @@ class Xarita:
                 # To'g'ri kesib o'tish
                 w = br.kesuvchi_polosalar * POLOSA_KENGLIGI
                 tugun_qismlari.append((w / 2, w / 2, [Bolak("otish", w, yollar=br.kesuvchi_polosalar,
-                                                              svetofor=br.svetofor, oqim=br.kesuvchi_oqim)]))
+                                                              svetofor=br.svetofor, oqim=br.kesuvchi_oqim,
+                                                              tugunlar=(br.tugun,))]))
             elif br.chorraha and th > 0:
                 # Chapga: ko'ndalang ko'chani, burchakda burilib, o'z (eski) ko'chamizni kesib o'tamiz
                 w1 = br.kesuvchi_polosalar * POLOSA_KENGLIGI
@@ -352,9 +391,11 @@ class Xarita:
                 w2 = p2 * POLOSA_KENGLIGI
                 r = asosiy_d(yol_bolagi(kir, 10.0)) + 3.5
                 tugun_qismlari.append((w2 / 2, w1 / 2, [
-                    Bolak("otish", w1, yollar=br.kesuvchi_polosalar, svetofor=br.svetofor, oqim=br.kesuvchi_oqim),
+                    Bolak("otish", w1, yollar=br.kesuvchi_polosalar, svetofor=br.svetofor, oqim=br.kesuvchi_oqim,
+                          tugunlar=(br.tugun,)),
                     Bolak("burilish", r * th, egrilik=1 / r),
-                    Bolak("otish", w2, yollar=p2, svetofor=br.svetofor, oqim=YOL_OQIMI.get(kir.turi, 0.02))]))
+                    Bolak("otish", w2, yollar=p2, svetofor=br.svetofor, oqim=YOL_OQIMI.get(kir.turi, 0.02),
+                          tugunlar=(br.tugun,))]))
             elif abs(th) > math.radians(3):
                 # O'ngga burilish (chorrahada r = 6 m) yoki ko'chaning egilishi
                 r = 6.0 if br.chorraha else 20.0
@@ -401,6 +442,7 @@ class Xarita:
                 jami = a.uzunlik + oraliq.uzunlik + b.uzunlik
                 yollar = min(6, a.yollar + b.yollar)
                 b = Bolak("otish", jami, yollar=yollar, yol_kengligi=jami / yollar,
-                          svetofor=a.svetofor or b.svetofor, oqim=max(a.oqim, b.oqim))
+                          svetofor=a.svetofor or b.svetofor, oqim=max(a.oqim, b.oqim),
+                          tugunlar=a.tugunlar + b.tugunlar)
             natija.append(b)
         return natija

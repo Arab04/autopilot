@@ -22,9 +22,13 @@ import math
 
 from .haydash import Buyruq, KMH, Sozlamalar, XavfsizlikQatlami, YordamNazoratchisi
 from .marshrut import Marshrut
-from .otish import Mashina, OtishSozlamalari, YolOtishBoshqaruvi
+from .otish import Mashina, OtishSozlamalari, YolOtishBoshqaruvi, kutish_bahosi
 
 OTISH_KUTISH_CHEGARASI = 120.0
+# Xaritaga ko'ra kutish uzoq bo'ladigan o'tishda (svetoforsiz katta ko'cha) operator darhol chaqirilmaydi:
+# skuter kutilgan vaqtning shuncha baravari kutadi (lekin OTISH_KUTISH_MAX dan ko'p emas).
+OTISH_KUTISH_KOPAYTMA = 3.0
+OTISH_KUTISH_MAX = 600.0
 
 
 @dataclass
@@ -274,8 +278,9 @@ class YolRejalovchi:
                                 math.inf)
                 # Joy yetmasa, chorrahani biroz chaproqda (o'z polosamizda) kesib o'tib, keyin qaytamiz
                 sigadi = oxir + c.skuter_yarim_uzunlik + 3.0 < chorraha - 1.0
-                # Chorrahada keskin burilish bo'lsa (chapga ikki bosqich, o'ngga burilish), yon tomonda kirmaymiz
-                if any(x.turi == "burilish" and abs(x.egrilik) > 0.1 and x.oxiri > s
+                # Chorrahada keskin burilish bo'lsa (chapga ikki bosqich, o'ngga burilish), yon tomonda kirmaymiz.
+                # Burilishning oxirgi 2 m i hisobga olinmaydi: yon tomonga siljish undan keyin boshlanadi.
+                if any(x.turi == "burilish" and abs(x.egrilik) > 0.1 and x.oxiri > s + 2.0
                        and x.boshi < birinchi.s - birinchi.uzunlik / 2 for x in marshrut.bolaklar):
                     sigadi = False
                 if masofa < c.qaror_masofa and b.turi == "otish":
@@ -517,4 +522,7 @@ class YolAvtopilot:
         kutish = None
         if self.otish_holati in ("bosh_joy_kutish", "operator_kutish"):
             kutish = OTISH_KUTISH_CHEGARASI
+            b = next((b for b in self.marshrut.otishlar() if -10.0 < s - b.boshi < 1.0), None)
+            if b is not None:
+                kutish = min(OTISH_KUTISH_MAX, max(kutish, OTISH_KUTISH_KOPAYTMA * kutish_bahosi(b, self.otish.oc)))
         return self.nazorat.tekshir(t, s, kutish)

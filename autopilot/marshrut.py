@@ -22,6 +22,7 @@ class Bolak:
     velo: float = 0.0             # yol: velosiped yo'lagi kengligi (m), 0 = yo'q
     parkovka: float = 0.0         # yol: chetda mashina to'xtash joyi kengligi (m), 0 = yo'q
     oqim: float = 0.0             # otish: kesib o'tiladigan yo'ldagi kutilgan oqim (mashina/s, bitta polosada), 0 = noma'lum
+    tugunlar: tuple = ()          # otish: xaritadagi chorraha tugun(lar)i (marshrut variantlarini solishtirish uchun)
     boshi: float = 0.0            # marshrut boshidan masofa (avtomatik hisoblanadi)
 
     @property

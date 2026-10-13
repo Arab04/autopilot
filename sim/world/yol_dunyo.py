@@ -691,11 +691,16 @@ def kocha_toldir(marshrut, rnd, nomi, rejim="yarim", kamera_xato=False, urug=0):
                 x += rnd.uniform(5.5, 9.0)
                 continue
             r = rnd.random()
+            # Qoidaga ko'ra chorraha / o'tish joyiga 5 m dan yaqin to'xtash mumkin emas
+            yarim = 6.0 if 0.25 <= r < 0.33 else 2.25
+            x_toxtash = max(x, b.boshi + 5.0 + yarim)
+            if r < 0.33 and x_toxtash + yarim > b.oxiri - 5.0:
+                r = 0.4  # bu yerda to'xtab bo'lmaydi: o'rniga kichik to'siq
             if r < 0.25:
-                transport.append(Transport("toxtagan", x, b.velo + 1.0 if b.velo else 1.0, uzunlik=4.5, eni=1.8,
+                transport.append(Transport("toxtagan", x_toxtash, b.velo + 1.0 if b.velo else 1.0, uzunlik=4.5, eni=1.8,
                                            polosa=-1, id=keyingi))
             elif r < 0.33:
-                transport.append(Transport("avtobus", x, b.velo + 1.35, 0.0, 0.0, 12.0, 2.5, -1, id=keyingi))
+                transport.append(Transport("avtobus", x_toxtash, b.velo + 1.35, 0.0, 0.0, 12.0, 2.5, -1, id=keyingi))
                 transport[-1].turi = "toxtagan"
             elif r < 0.55:
                 transport.append(Transport("tosiq", x, b.velo / 2 + rnd.uniform(0.3, 1.0) if b.velo else rnd.uniform(0.4, 1.2),

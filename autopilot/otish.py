@@ -44,6 +44,32 @@ class OtishSozlamalari:
     toxtamasdan: bool = False          # yo'lda: svetofor yashil va xavfsiz bo'lsa chiziqda to'xtamay o'tadi
 
 
+SVETOFOR_KUTISH = 30.0   # svetoforda o'rtacha kutish (s)
+
+
+def kutish_bahosi(b: Bolak, oc: OtishSozlamalari = None):
+    """O'tish joyida bo'sh joy kutishning taxminiy o'rtacha vaqti (s), xaritadagi oqimdan.
+
+    Mashinalar har polosada Puasson oqimi (b.oqim mashina/s) deb olinadi. Skuter chiziqdan qo'zg'alib i-polosadan
+    chiqib ulgurguncha (T_i + zaxira) shu polosaga mashina kelmasligi kerak: P = exp(-D), D = sum(oqim * T_i).
+    O'rtacha kutish (Adams formulasi): (1/P - 1 - D) / jami_oqim. Svetoforda - o'rtacha qizil chiroq vaqti.
+    Simulyatorda o'lchangan kutishga yaqin; oqim kun davomida o'zgarsa, haqiqiy o'rtacha kattaroq bo'ladi.
+    """
+    oc = oc or OtishSozlamalari()
+    if b.svetofor:
+        return SVETOFOR_KUTISH
+    if b.oqim <= 0 or b.yollar <= 0:
+        return 0.0
+    v, a = oc.otish_tezligi, oc.tezlanish
+    x_tez = v * v / (2 * a)
+    daraja = 0.0
+    for p in range(b.yollar):
+        x = (p + 1) * b.yol_kengligi + oc.skuter_orqa
+        t = math.sqrt(2 * x / a) if x <= x_tez else v / a + (x - x_tez) / v
+        daraja += b.oqim * (t + oc.bufer + 0.5)
+    return (math.exp(min(daraja, 50.0)) - 1.0 - daraja) / (b.oqim * b.yollar)
+
+
 class YolOtishBoshqaruvi:
     def __init__(self, oc: OtishSozlamalari = None, rejim="yarim"):
         self.oc = oc or OtishSozlamalari()

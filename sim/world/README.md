@@ -170,11 +170,29 @@ instituti (Troitsk), O'rmon parki, Chirchiq bozori, 8-kichik nohiya, Oktyabr. 6-
 (pedagogika universiteti, shoshilinch yordam markazi, 4-kichik nohiya, Do'stlik mahallasi, Kimyogar sport majmuasi).
 Koordinatalar OSM dagi shu nomli joylardan olingan.
 
-Natija (100 ta yetkazish, 1,3-7,9 km): **to'qnashuv 0**, 45 tasida skuter manzilga o'zi yetdi, 55 tasida
-operator chaqirildi. Operator chaqiruvining 44 tasi chorrahada: ombordan g'arbga boradigan deyarli har marshrut
-svetoforsiz Alisher Navoiy shoh ko'chasini (4 polosa) kesadi va zich oqimda 2 daqiqa ichida xavfsiz oraliq
-topilmaydi. Oktyabrga 10 tadan 0 tasi o'zi yetdi. O'rtacha tezlik 13,5 km/soat. To'liq jadval
+Natija (100 ta yetkazish, 1,3-7,9 km): **to'qnashuv 0**, 58 tasida skuter manzilga o'zi yetdi, 42 tasida
+operator chaqirildi (2026-10-13; avval 45 va 55). Operator chaqiruvining 41 tasi chorrahada: ombordan g'arbga
+boradigan har marshrut svetoforsiz Alisher Navoiy shoh ko'chasini (ajratilgan, 2+2 polosa) kesadi. Svetoforsiz
+katta ko'chalarda 112 marta kutildi: o'rtacha 73 s, mediana 43 s, eng uzoq 425 s. Eng yomon manzil - Shoshilinch
+tibbiy yordam markazi (1/10): u yerga Navoiy ko'chasiga chapga burilib (ikki marta kesib) boriladi. To'liq jadval
 `natijalar_chirchiq.txt`, xarita `natijalar_chirchiq.svg`.
+
+### Katta ko'chada kutish (2026-10-13)
+
+Kutish chegarasi olib tashlansa, Navoiy ko'chasida kutish 2 s dan 27 daqiqagacha bo'ldi (mashinalar oqimi
+bir polosada 0,07-0,17 mashina/s, ya'ni 240-600 mashina/soat; haqiqiy oqim o'lchanmagan). Shuning uchun:
+
+- `otish.kutish_bahosi(b)`: o'tish joyida kutishning taxminiy o'rtacha vaqti xaritadagi oqim, polosalar soni va
+  kenglikdan (Puasson oqimi, Adams formulasi). Simulyatorda o'lchangan o'rtacha bilan mos keladi.
+- Marshrut 6 tagacha variantni solishtiradi: har safar eng uzoq kutiladigan chorrahaga jarima qo'yib qayta
+  qidiradi va "yo'l narxi + 4,5 m x kutish soniyasi" eng kichigini oladi. Masalan, Oktyabrga yo'l endi Navoiy
+  ko'chasini ikki marta (chapga burilib) emas, bir marta to'g'ri kesadi.
+- Xaritaga ko'ra uzoq kutiladigan o'tishda operator 120 s da emas, kutilgan vaqtning 3 baravarida (eng ko'pi
+  10 daqiqa) chaqiriladi: bu kutish oldindan ma'lum, operator uni xaritada ko'rib turadi.
+- Simulyator: mashina va avtobus chorraha / o'tish joyiga 5 m dan yaqin to'xtamaydi (qoida). Avval avtobus
+  chorrahadan 1 m keyin abadiy turib, skuterni chorrahaga kiritmay qo'yardi.
+- O'ngga burilishdan keyin 1-2 m da turgan to'siqni skuter aylanib o'tmay, abadiy kutardi (burilishning oxirgi
+  2 m i endi hisobga olinmaydi).
 
 ### Haqiqiy xaritada topilgan xatolar (tuzatildi)
 
@@ -205,11 +223,11 @@ Sun'iy shaharda ko'rinmagan, birinchi Chirchiq yugurishida 50 ta yetkazishdan 11
 Simulyatorning o'zida ham tuzatildi: chorrahadagi ko'ndalang oqim ko'cha turiga qarab (hovli ko'chasida kam, katta
 ko'chada ko'p), 900 s dan uzun marshrutlarda ham mashinalar bor; velosipedchi va mashinalar avtobus orqasida
 abadiy tiqilib qolmaydi (chapdan aylanib o'tadi). 3-bosqich sinovi shu o'zgarishlardan keyin ham o'tadi
-(150 ko'cha: to'qnashuv 0, operator 17/150; avval 16/150).
+(150 ko'cha: to'qnashuv 0, operator 12/150; avval 17/150).
 
 ### Keyingi qadamlar
 
-- Alisher Navoiy ko'chasini kesish: ombor yonidagi eng yaqin svetoforli o'tishni joyida aniqlab xaritaga
-  qo'shish (OSM da yo'q), yoki u yerda doim operator tasdig'i bilan o'tish, yoki omborni ko'chaning g'arbiy
-  tomoniga qo'yish.
+- Alisher Navoiy ko'chasi: ombor yonida mashinalar oqimini joyida sanash (yetkazish soatlarida 5 daqiqa, har
+  polosada) va eng yaqin svetoforni aniqlash. Oqim bir polosada 0,05 mashina/s (180/soat) dan kam bo'lsa skuter
+  o'zi o'tadi; ko'p bo'lsa svetoforli joydan o'tish, operator tasdig'i yoki omborni g'arbiy tomonga ko'chirish.
 - Chirchiqdagi svetoforlarni joyida (yoki videodan) xaritaga qo'shish.

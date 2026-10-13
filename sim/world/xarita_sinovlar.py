@@ -19,6 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from autopilot.otish import kutish_bahosi  # noqa: E402
 from autopilot.xarita import Xarita  # noqa: E402
 from autopilot.yol import YolSozlamalari, yol_tartibi  # noqa: E402
 from yol_dunyo import ishga_tushir, kocha_toldir  # noqa: E402
@@ -191,9 +192,18 @@ def _sim(arg):
             if jami >= s_kerak:
                 joy = xm.tugunlar[i]
                 break
+    # Uzoq kutiladigan o'tishlarda (xarita bahosi > 30 s) haqiqatda qancha kutdi: chiziq oldida o'tgan vaqt
+    kutishlar = []
+    for b in xm.marshrut.otishlar():
+        baho = kutish_bahosi(b)
+        if baho > 30:
+            ts = [t for t, s in zip(n.iz["t"], n.iz["s"]) if b.boshi - 3 < s < b.boshi]
+            if ts and n.iz["s"][-1] >= b.boshi:
+                kutishlar.append((baho, max(ts) - min(ts)))
     n.iz = {}  # jarayonlar orasida katta ma'lumot uzatmaymiz
     return (k, takror, n, xm.marshrut.uzunlik, turlar.count("otish"),
-            sum(1 for b in xm.marshrut.bolaklar if b.turi == "otish" and b.svetofor), sabab, joy, xm.tugunlar)
+            sum(1 for b in xm.marshrut.bolaklar if b.turi == "otish" and b.svetofor), sabab, joy, xm.tugunlar,
+            kutishlar)
 
 
 def _rasm(xarita, natijalar, fayl):
@@ -221,7 +231,7 @@ def _rasm(xarita, natijalar, fayl):
     ranglar = ["#1f77b4", "#ff7f0e", "#2ca02c", "#9467bd", "#8c564b", "#e377c2", "#17becf", "#bcbd22", "#7f7f7f", "#d62728"]
     chizilgan = set()
     for n_ in natijalar:
-        m, tugunlar = n_[0], n_[-1]
+        m, tugunlar = n_[0], n_[8]
         if m in chizilgan:
             continue
         chizilgan.add(m)
@@ -291,6 +301,11 @@ def chirchiq(takror):
           f"to'qnashuv: {sum(not _xavfsiz(x[2]) for x in natijalar)}")
     if yetdi:
         print(f"O'rtacha tezlik (yetganlar): {sum(x[2].ortacha_kmh for x in yetdi) / len(yetdi):.1f} km/soat")
+    kut = sorted(w for x in natijalar for _, w in x[9])
+    if kut:
+        print(f"Svetoforsiz katta ko'chani kesib o'tishda kutish ({len(kut)} marta): o'rtacha {sum(kut) / len(kut):.0f} s, "
+              f"mediana {kut[len(kut) // 2]:.0f} s, eng uzoq {kut[-1]:.0f} s; "
+              f"2 daqiqadan uzoq: {sum(w > 120 for w in kut)} marta")
     if sabablar:
         print("Operator chaqirish sabablari: " + ", ".join(f"{s_} - {n_}" for s_, n_ in sorted(sabablar.items(), key=lambda z: -z[1])))
     # Haqiqiy xaritada operator chaqiruvlari ko'p (ombordan g'arbga har yetkazish svetoforsiz Alisher Navoiy

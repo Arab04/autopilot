@@ -5,20 +5,21 @@ Xarita moduli sinovlari: o`tdi
 Har bir manzil 10 marta (har safar boshqa mashinalar, odamlar, to'xtagan mashinalar):
 
 Manzil                              Uzunlik  Chorraha O`zi yetdi  Operator  To`qn. O`rt. vaqt
-Jismoniy tarbiya instituti (Troitsk)    7879m        52       3/10         7       0     39.2min
-O'rmon parki                          3780m        39       2/10         8       0     19.5min
-Chirchiq bozori                       4907m        32       8/10         2       0     20.1min
-8-kichik nohiya                       5311m        42       2/10         8       0     23.7min
-Oktyabr (Oktyabr bozori)              2375m        19       0/10        10       0      nanmin
-Pedagogika universiteti               2254m        22       9/10         1       0      9.8min
+Jismoniy tarbiya instituti (Troitsk)    7879m        52       5/10         5       0     38.4min
+O'rmon parki                          3780m        39       3/10         7       0     21.3min
+Chirchiq bozori                       4907m        32       9/10         1       0     20.3min
+8-kichik nohiya                       5311m        42       3/10         7       0     24.0min
+Oktyabr (Oktyabr bozori)              2964m        26       4/10         6       0     14.4min
+Pedagogika universiteti               2254m        22      10/10         0       0      9.8min
 Shoshilinch tibbiy yordam markazi     2023m        12       1/10         9       0     16.9min
-4-kichik nohiya                       2659m        28       2/10         8       0     17.1min
-Do'stlik mahallasi                    3835m        27       8/10         2       0     15.6min
+4-kichik nohiya                       2634m        26       4/10         6       0     16.3min
+Do'stlik mahallasi                    3835m        27       9/10         1       0     15.8min
 Kimyogar sport majmuasi               1309m        14      10/10         0       0      5.9min
 
-Jami: 100 ta yetkazish. O'zi yetdi: 45, operator chaqirdi: 55, to'qnashuv: 0
-O'rtacha tezlik (yetganlar): 13.5 km/soat
-Operator chaqirish sabablari: chorrahada bo'sh joy yo'q - 44, to'siq oldida kutdi - 8, to'siqni aylanib o'tolmadi - 3
+Jami: 100 ta yetkazish. O'zi yetdi: 58, operator chaqirdi: 42, to'qnashuv: 0
+O'rtacha tezlik (yetganlar): 13.2 km/soat
+Svetoforsiz katta ko'chani kesib o'tishda kutish (112 marta): o'rtacha 73 s, mediana 43 s, eng uzoq 425 s; 2 daqiqadan uzoq: 19 marta
+Operator chaqirish sabablari: chorrahada bo'sh joy yo'q - 41, to'siqni aylanib o'tolmadi - 1
 Rasm: natijalar_chirchiq.svg
 
-O'tmagan sinovlar: operator 55/100 marta kerak bo'ldi
+O'tmagan sinovlar: yo'q
