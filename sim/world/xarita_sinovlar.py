@@ -3,6 +3,7 @@
     python3 xarita_sinovlar.py                      # sun'iy sinov shahri (xarita moduli sinovi)
     python3 xarita_sinovlar.py --osm chirchiq.osm   # haqiqiy OpenStreetMap fayli, 10 ta tasodifiy manzil
     python3 xarita_sinovlar.py --chirchiq [N]       # Chirchiq xaritasi: ombordan 10 manzilga, har biri N marta (3)
+    python3 xarita_sinovlar.py --chirchiq [N] --joylashuv   # 5-bosqich: skuter joyini GPS va kameradan o'zi baholaydi
 
 Sun'iy shahar xarita modulini tekshirish uchun: unda avtomagistral, bir tomonlama ko'cha, svetoforli katta yo'l,
 velosiped yo'lagi, parkovka, qiya ko'cha va egilgan ko'cha bor. Bu Chirchiq emas.
@@ -22,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from autopilot.xarita import Xarita  # noqa: E402
 from autopilot.yol import YolSozlamalari, yol_tartibi  # noqa: E402
 from yol_dunyo import ishga_tushir, kocha_toldir  # noqa: E402
+from joylashuv_dunyo import tasodifiy_sharoit  # noqa: E402
 from yol_sinovlar import _xavfsiz  # noqa: E402
 
 LAT0, LON0 = 41.47, 69.58  # sun'iy shahar shu nuqta atrofida (koordinatalar uchun)
@@ -171,13 +173,15 @@ SABAB = {"bosh_joy_kutish": "chorrahada bo'sh joy yo'q", "operator_kutish": "cho
 
 
 def _sim(arg):
-    k, osm, bosh, manzil, takror = arg
+    k, osm, bosh, manzil, takror, *joyl = arg
     if osm not in _XARITA:
         _XARITA[osm] = Xarita.osm_dan(osm)
     xm = _XARITA[osm].skuter_marshruti(bosh, manzil, _asosiy)
     rnd = random.Random(k * 7919 + takror * 1000003)
     sc = kocha_toldir(xm.marshrut, rnd, f"manzil-{k}", rejim="toliq" if k % 3 == 0 else "yarim",
                       kamera_xato=k % 5 == 0, urug=k + 100 * takror)
+    if joyl and joyl[0]:
+        sc.joylashuv = tasodifiy_sharoit(random.Random(k * 31 + takror * 7 + 5), xm.marshrut.uzunlik)
     n = ishga_tushir(sc)
     turlar = [b.turi for b in xm.marshrut.bolaklar]
     sabab = SABAB.get(n.iz["holat"][-1], n.iz["holat"][-1]) if n.yordam else ""
@@ -247,8 +251,11 @@ def _rasm(xarita, natijalar, fayl):
     Path(fayl).write_text("\n".join(q), encoding="utf-8")
 
 
-def chirchiq(takror):
-    """Chirchiq xaritasi: ombordan 10 ta manzilga, har biri takror marta (har safar boshqa ko'cha holati)."""
+def chirchiq(takror, joyl=False):
+    """Chirchiq xaritasi: ombordan 10 ta manzilga, har biri takror marta (har safar boshqa ko'cha holati).
+
+    joyl: skuter joyini datchiklardan o'zi baholaydi (5-bosqich), tasodifiy GPS va kamera sharoiti bilan.
+    """
     osm = str(CHIRCHIQ_OSM)
     xarita = Xarita.osm_dan(osm)
     print(f"Xarita: Chirchiq (OpenStreetMap): {len(xarita.tugunlar)} tugun, {len(xarita.yollar)} yo'l "
@@ -266,8 +273,9 @@ def chirchiq(takror):
     print(f"Xarita moduli sinovlari: {'o`tdi' if not xatolar else '; '.join(xatolar)}")
 
     with Pool() as p:
-        natijalar = p.map(_sim, [(k, osm, b, m, u) for u in range(takror) for k, (b, m) in enumerate(juftlar, 1)])
-    print(f"\nHar bir manzil {takror} marta (har safar boshqa mashinalar, odamlar, to'xtagan mashinalar):\n")
+        natijalar = p.map(_sim, [(k, osm, b, m, u, joyl) for u in range(takror) for k, (b, m) in enumerate(juftlar, 1)])
+    print(f"\nHar bir manzil {takror} marta (har safar boshqa mashinalar, odamlar, to'xtagan mashinalar"
+          f"{'; skuter joyini GPS, odometr, giroskop va kameradan o`zi baholaydi' if joyl else ''}):\n")
     print(f"{'Manzil':34} {'Uzunlik':>8} {'Chorraha':>9} {'O`zi yetdi':>10} {'Operator':>9} {'To`qn.':>7} {'O`rt. vaqt':>10}")
     sabablar = {}
     for k, (nomi, *_) in enumerate(CHIRCHIQ_MANZILLAR, 1):
@@ -291,13 +299,21 @@ def chirchiq(takror):
           f"to'qnashuv: {sum(not _xavfsiz(x[2]) for x in natijalar)}")
     if yetdi:
         print(f"O'rtacha tezlik (yetganlar): {sum(x[2].ortacha_kmh for x in yetdi) / len(yetdi):.1f} km/soat")
+    ichida = sum(x[2].chorraha_ichida for x in natijalar)
+    print(f"Chorraha ichida to'xtab qolish: {ichida}")
+    if joyl:
+        print(f"Joy xatosi: marshrut bo'ylab eng ko'pi {max(x[2].joy_max_s for x in natijalar):.2f} m, yon tomonga "
+              f"{max(x[2].joy_max_d for x in natijalar):.2f} m, chorrahaga 15 m qolganda "
+              f"{max(x[2].joy_chiziq for x in natijalar):.2f} m")
+        if ichida:
+            xatolar.append(f"chorraha ichida {ichida} marta to'xtadi")
     if sabablar:
         print("Operator chaqirish sabablari: " + ", ".join(f"{s_} - {n_}" for s_, n_ in sorted(sabablar.items(), key=lambda z: -z[1])))
     # Haqiqiy xaritada operator chaqiruvlari ko'p (ombordan g'arbga har yetkazish svetoforsiz Alisher Navoiy
     # ko'chasini kesadi), shuning uchun bu chegara faqat yomonlashishdan himoya: asosiy talab - to'qnashuv yo'q.
     if yordam > 0.65 * jami:
         xatolar.append(f"operator {yordam}/{jami} marta kerak bo'ldi")
-    fayl = Path(__file__).with_name("natijalar_chirchiq.svg")
+    fayl = Path(__file__).with_name("natijalar_chirchiq_joylashuv.svg" if joyl else "natijalar_chirchiq.svg")
     _rasm(xarita, natijalar, fayl)
     print(f"Rasm: {fayl.name}")
     print("\nO'tmagan sinovlar:", "; ".join(xatolar) if xatolar else "yo'q")
@@ -309,7 +325,7 @@ def main():
     if "--chirchiq" in args:
         i = args.index("--chirchiq")
         takror = int(args[i + 1]) if i + 1 < len(args) and args[i + 1].isdigit() else 3
-        return chirchiq(takror)
+        return chirchiq(takror, "--joylashuv" in args)
     if "--osm" in args:
         osm = nomi = args[args.index("--osm") + 1]
     else:

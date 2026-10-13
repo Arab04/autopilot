@@ -81,6 +81,12 @@ class YolKuzatuvchi:
         self.izlar = {}  # iz -> [obyekt, oxirgi_vaqt, turgan_boshlanishi, yurgan_boshlanishi]
         self.t = None
 
+    def siljit(self, ds, dd):
+        """Skuter joyi tuzatildi (joylashuv filtri): obyektlar skuterga nisbatan o'lchangan, ular ham suriladi."""
+        for o, *_ in self.izlar.values():
+            o.s += ds
+            o.d += dd
+
     def yangila(self, t, aniqlashlar):
         dt = 0.0 if self.t is None else t - self.t
         self.t = t
@@ -422,8 +428,17 @@ class YolAvtopilot:
     def operator_sorovi(self):
         return self.otish.sorov is not None
 
-    def rejalash(self, t, s, d, v, aniqlashlar, kesuvchi_mashinalar=(), svetofor=None, operator_javobi=None):
+    def rejalash(self, t, s, d, v, aniqlashlar, kesuvchi_mashinalar=(), svetofor=None, operator_javobi=None,
+                 joylashuv=None):
+        """joylashuv: `joylashuv.Joylashuv` (5-bosqich). Berilsa, s va d undan olingan taxminiy joy."""
         c = self.c
+        if joylashuv is not None:
+            ds, dd = joylashuv.tuzatishni_ol()
+            self.kuz.siljit(ds, dd)
+            if self.rej.s_oxir is not None:
+                self.rej.s_oxir += ds
+            if self.rej.d_aylanish is not None:
+                self.rej.d_aylanish += dd
         if aniqlashlar is not None:
             self.obyektlar = self.kuz.yangila(t, aniqlashlar)
             self.oxirgi_kamera = t
@@ -462,6 +477,13 @@ class YolAvtopilot:
                 if v_burilish < 0.1:
                     holat = "yol_berish"
         yangi_holat = b.holat if holat in (None, "otish", "otishga_yaqinlashish") else holat
+        if joylashuv is not None and holat != "otish" and self.marshrut.bolak(s).turi == "yol":
+            # Joy noaniqligi tufayli faqat oddiy yo'lda sekinlashamiz yoki to'xtaymiz, chorraha ichida emas
+            v_max, sabab = joylashuv.cheklov(c.max_tezlik)
+            if v_max / f < tezlik:
+                tezlik = v_max / f
+                if v_max < 0.1:
+                    yangi_holat = sabab
         return Buyruq(tezlik * f, b.d_maqsad, b.tormoz, yangi_holat)
 
     def _kesuvchilarni_eslash(self, t, korilgan, eslash=0.6):
