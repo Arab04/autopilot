@@ -4,7 +4,8 @@ Oldingi bosqichlarda simulyator skuterga uning aniq joyini (s, d) berardi. Haqiq
 hech kim bermaydi: joy datchiklardan baholanadi.
 
 Datchiklar:
-- GPS (5 Hz): 1-3 m xato; daraxtlar va binolar orasida yo'qoladi yoki ko'p metrga "sakraydi";
+- GPS (5 Hz): 1-3 m xato; daraxtlar va binolar orasida yo'qoladi yoki ko'p metrga "sakraydi".
+  Qabul qilgich o'z aniqligini ham aytadi (odatda kamaytirib): binolar orasida u kattalashadi;
 - g'ildirak odometri: tezlik (g'ildirak yeyilsa, bir necha foiz xato);
 - giroskop: burilish tezligi (o'zining sekin o'zgaruvchi xatosi bor);
 - kamera: yo'l chetigacha (bordyur yoki parkovka chizig'i) yon masofa va oldindagi belgigacha masofa
@@ -248,9 +249,14 @@ class Joylashuv:
         self.P = I_KH @ P @ I_KH.T + Kg @ R @ Kg.T
         return True
 
-    def gps(self, gx, gy):
-        """GPS o'lchovi (xarita tekisligida, m). Qaytaradi: qabul qilindimi."""
+    def gps(self, gx, gy, aniqlik=None):
+        """GPS o'lchovi (xarita tekisligida, m) va qabul qilgich aytgan aniqlik (m). Qaytaradi: qabul qilindimi."""
         c, x = self.c, self.x
+        if aniqlik is not None and aniqlik > c.gps_xato:
+            # Qabul qilgich aniqlik yomonlashganini aytyapti (binolar orasi): GPS xatosi shunchalik bo'lishi mumkin,
+            # shuning uchun joyni GPS ga emas, ko'proq odometrga va kamera belgilariga qarab baholaymiz
+            for i in (BX, BY):
+                self.P[i, i] = max(self.P[i, i], aniqlik ** 2)
         px, py, th = self.chiziq.nuqta(x[S])
         kap = self._egrilik(x[S])
         tx, ty, nx, ny = math.cos(th), math.sin(th), -math.sin(th), math.cos(th)

@@ -61,6 +61,7 @@ class Datchiklar:
         return omega + self.bg + self.rnd.gauss(0, 0.01)
 
     def gps(self, t, s, d):
+        """GPS: (x, y, aniqlik) yoki None (signal yo'q)."""
         sh = self.sh
         dt = 0.0 if self.t_gps is None else t - self.t_gps
         self.t_gps = t
@@ -80,8 +81,10 @@ class Datchiklar:
         y += self.by + self.rnd.gauss(0, sh.gps_shovqin)
         for a, b, dx, dy in sh.gps_sakrash:
             if a <= s < b:
-                x, y = x + dx, y + dy
-        return x, y
+                x, y = x + dx, y + dy  # qaytgan signal: qabul qilgich buni sezmaydi
+        # Qabul qilgich aytadigan aniqlik: haqiqiy xatoga bog'liq, lekin odatda kamaytirib aytiladi
+        aniqlik = math.hypot(xato, sh.gps_shovqin) * self.rnd.uniform(0.6, 1.0)
+        return x, y, aniqlik
 
     def chet(self, s, d):
         """Yo'l chetigacha yon masofa: (masofa, turi) yoki None."""

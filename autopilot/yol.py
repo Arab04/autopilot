@@ -449,7 +449,7 @@ class YolAvtopilot:
         b = self.rej.reja(t, s, d, v, self.obyektlar, self.marshrut)
         yol_ochiq = b.tezlik >= c.max_tezlik - 1e-6
         yol_tezligi = math.inf if yol_ochiq else b.tezlik
-        if self._chorraha_tiqilgan(s):
+        if self._chorraha_tiqilgan(s, d):
             yol_tezligi = 0.0  # chorrahadan keyin joy yo'q: chorrahaga kirib, uni to'sib qo'ymaymiz
         kesuvchilar = self._kesuvchilarni_eslash(t, list(kesuvchi_mashinalar))
         v_otish, holat = self.otish.qadam(t, s, v, self.marshrut, kesuvchilar, svetofor,
@@ -501,7 +501,7 @@ class YolAvtopilot:
         self.kesuvchi_xotira = yangi
         return [m for m, _ in yangi]
 
-    def _chorraha_tiqilgan(self, s):
+    def _chorraha_tiqilgan(self, s, d):
         """Oldimizdagi chorrahadan keyin bizga joy bormi (u yerda turgan mashina/to'siq yo'qmi)."""
         c = self.c
         b = next((x for x in self.marshrut.otishlar() if 0 < x.boshi - s < 15), None)
@@ -512,7 +512,9 @@ class YolAvtopilot:
         if yol is None:
             return False
         _, asosiy, _, polosa_boshi = yol_tartibi(yol, c)
-        aylanib = self.rej.rejim == "aylanib"
+        # Aylanib o'tishni chorrahadan oldin boshlagan bo'lsak, to'siq yonidan o'tamiz, lekin faqat yon joyimizga
+        # chiqib bo'lgan bo'lsak: aks holda chap polosadagi mashinalar yo'l bermasa, chorraha ichida qolamiz
+        aylanib = self.rej.rejim == "aylanib" and abs(d - self.rej.d_aylanish) < 0.5
         for o in self.obyektlar:
             if o.turi == "odam" or (o.vs > 1.5 and not o.toxtagan) or o.s + o.uzunlik / 2 < b.boshi:
                 continue

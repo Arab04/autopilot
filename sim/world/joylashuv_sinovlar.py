@@ -40,7 +40,7 @@ ANIQ = [
      lambda n: _yaxshi(n, 0.5) and n.joy_max_d < 0.15 and n.joy_izchil > 0.95),
     (_chorraha_ssenariy("2. GPS 200 m yo'q (daraxtlar ostida), keyin chorraha",
                         JoylashuvSharoiti(gps_yoq=[(30, 240)], odometr_xato=0.03), urug=2),
-     lambda n: _yaxshi(n) and n.joy_max_d < 0.15),
+     lambda n: _yaxshi(n) and n.joy_izchil > 0.95),
     (_chorraha_ssenariy("3. GPS 25 m ga sakraydi (80 m davomida)",
                         JoylashuvSharoiti(gps_sakrash=[(60, 140, 18.0, -17.0)]), urug=3),
      lambda n: _yaxshi(n) and n.joy_max_s < 3.0 and n.joy_rad >= 50),

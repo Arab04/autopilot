@@ -23,7 +23,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from autopilot.xarita import Xarita  # noqa: E402
 from autopilot.yol import YolSozlamalari, yol_tartibi  # noqa: E402
 from yol_dunyo import ishga_tushir, kocha_toldir  # noqa: E402
-from joylashuv_dunyo import tasodifiy_sharoit  # noqa: E402
 from yol_sinovlar import _xavfsiz  # noqa: E402
 
 LAT0, LON0 = 41.47, 69.58  # sun'iy shahar shu nuqta atrofida (koordinatalar uchun)
@@ -181,6 +180,7 @@ def _sim(arg):
     sc = kocha_toldir(xm.marshrut, rnd, f"manzil-{k}", rejim="toliq" if k % 3 == 0 else "yarim",
                       kamera_xato=k % 5 == 0, urug=k + 100 * takror)
     if joyl and joyl[0]:
+        from joylashuv_dunyo import tasodifiy_sharoit  # numpy faqat shu rejimda kerak
         sc.joylashuv = tasodifiy_sharoit(random.Random(k * 31 + takror * 7 + 5), xm.marshrut.uzunlik)
     n = ishga_tushir(sc)
     turlar = [b.turi for b in xm.marshrut.bolaklar]

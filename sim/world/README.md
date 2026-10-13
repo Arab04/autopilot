@@ -116,8 +116,8 @@ Yo'lda `d` = o'ng bordyurdan chapga masofa (m). Ko'cha o'ngdan chapga: `[parkovk
 
 | Ko'rsatkich | Natija |
 |---|---|
-| Manzilga o'zi yetdi | 176/200 |
-| Qotib qolib operator chaqirdi | 24/200 (12%) |
+| Manzilga o'zi yetdi | 175/200 |
+| Qotib qolib operator chaqirdi | 25/200 (12,5%) |
 | Mashina / velosipedchi / to'siq / ko'ndalang mashina bilan to'qnashuv | 0 / 0 / 0 / 0 |
 | Odam bilan to'qnashuv | 1 (kocha-192, pastda) |
 | Bordyurga tegish, eshik zonasidan o'tish | 0, 0 |
@@ -213,3 +213,99 @@ abadiy tiqilib qolmaydi (chapdan aylanib o'tadi). 3-bosqich sinovi shu o'zgarish
   qo'shish (OSM da yo'q), yoki u yerda doim operator tasdig'i bilan o'tish, yoki omborni ko'chaning g'arbiy
   tomoniga qo'yish.
 - Chirchiqdagi svetoforlarni joyida (yoki videodan) xaritaga qo'shish.
+
+# 5-bosqich: joylashuvni aniqlash (`joylashuv_sinovlar.py`)
+
+Oldingi bosqichlarda simulyator skuterga uning aniq joyini berardi. Endi skuter joyini o'zi baholaydi:
+`autopilot/joylashuv.py` (skuterga o'rnatiladi) faqat datchik o'lchovlarini oladi.
+
+    cd sim/world
+    python3 joylashuv_sinovlar.py 200              # 10 ta nosozlik ssenariysi + 200 ta tasodifiy ko'cha
+    python3 xarita_sinovlar.py --chirchiq 2 --joylashuv   # Chirchiq marshrutlari, skuter joyini o'zi baholaydi
+
+| Fayl | Nima |
+|---|---|
+| `autopilot/joylashuv.py` | **Skuter dasturi**: Kalman filtri (EKF), o'lchovlarni rad etish, ehtiyot qoidalari |
+| `sim/world/joylashuv_dunyo.py` | **Datchiklar simulyatori**: GPS, odometr, giroskop, kamera (yo'l cheti, belgilar) |
+| `sim/world/joylashuv_sinovlar.py` | Ssenariylar; har bir tasodifiy ko'cha aniq joy bilan va filtr bilan solishtiriladi |
+
+## Datchiklar
+
+| Datchik | Nima beradi | Simulyatordagi xatolar |
+|---|---|---|
+| GPS (5 Hz) | xaritadagi joy (x, y) va qabul qilgich aytgan aniqlik | tasodifiy 0,5-1 m + sekin o'zgaruvchi 1-2 m; binolar orasida 3-6 m (qabul qilgich buni 0,6-1 barobar kamaytirib aytadi); signal yo'qolishi; 35 m gacha "sakrash" (qabul qilgich sezmaydi) |
+| G'ildirak odometri | tezlik | masshtab xatosi (yeyilgan g'ildirak): odatda 2% gacha, sinovda 6% |
+| Giroskop | burilish tezligi | o'z xatosi 0,3-1 grad/s, sekin o'zgaradi |
+| Kamera: yo'l cheti | bordyur yoki parkovka chizig'igacha yon masofa | 2-7 sm; 5-15% kadrda ko'rinmaydi; ba'zan 5-25 m umuman ko'rinmaydi (qor, loy); 2% noto'g'ri |
+| Kamera: belgilar | chorrahaga kirish/chiqish cheti, o'ngga burilishda bordyur egilishi boshigacha masofa | 10-50 sm; 20-40% kadrda ko'rinmaydi; 2% noto'g'ri |
+
+## Filtr va qoidalar
+
+1. **Holat**: marshrut bo'ylab joy `s`, yon joy `d`, yo'nalish, giroskop xatosi, odometr masshtabi, GPS xatosi.
+   Odometr va giroskop bilan oldinga hisoblanadi (20 Hz), GPS va kamera bilan tuzatiladi.
+2. **Rad etish**: o'lchov filtr kutganidan juda uzoq bo'lsa (chi-kvadrat, 99,9%), ishlatilmaydi. Kamera bir xil
+   narsani 5 kadr ketma-ket ko'rsatib, filtr uni rad etaversa, filtr adashgan: o'sha holatni qayta tiklaydi.
+3. **O'lchov faqat o'z holatini tuzatadi**: yo'l cheti faqat yon holatni, belgilar faqat marshrut bo'ylab holatni.
+4. **Binolar orasi**: GPS aniqligi yomonlashsa, joy GPS bo'yicha emas, odometr va belgilar bo'yicha baholanadi.
+5. **Ehtiyot**: rejalovchi skuterni taxminiy joyidan 2 sigma oldinroq (chorraha va burilish yaqinroq) va 2 sigma
+   bordyurga yaqinroq (bordyurdan uzoqroq yuradi) deb hisoblaydi. Kamera ko'rgan obyektlar skuterga nisbatan
+   o'lchangani uchun joy tuzatilsa, kuzatuvdagi obyektlar ham shuncha suriladi.
+6. **Noaniqlik katta bo'lsa**: oddiy yo'lda yon sigma 20 sm dan oshsa 10 km/soat, 50 sm dan oshsa to'xtab
+   operatorni chaqiradi. Chorrahaga kirgan bo'lsa to'xtamaydi, oxirigacha o'tadi.
+
+## Simulyatsiya topgan xatolar (tuzatildi)
+
+1. **Aylanib o'tishda joy o'nlab metrga sakradi.** Filtr yon xatoni odometr xatosi deb tushunib, bordyur
+   o'lchovidan marshrut bo'ylab joyni ham "tuzatardi" (bir o'lchovda 0,5 m gacha). Endi yon o'lchov faqat yon
+   holatni tuzatadi.
+2. **O'ngga burilishda bordyurga tegish.** Burilish boshini 1-2 m xato bilgan skuter erta burilardi, filtr esa bu
+   xato yo'nalish xatosiga aylanishini bilmasdan, to'g'ri bordyur o'lchovlarini rad etardi. Endi filtr buni
+   hisobga oladi va kamera burilish boshidagi bordyur egilishini ko'radi.
+3. **Ikki bosqichli chap burilishda chetlarni adashtirish.** Chorraha chetlari 7 m oraliqda turadi; endi ular
+   "kirish" va "chiqish" turiga ajratiladi, ikkita bir xil chet filtr darvozasiga tushsa, o'lchov ishlatilmaydi.
+4. **Chorraha ichida to'xtab qolish.** Yon noaniqlik chap burilish burchagida (bordyur yo'q) oshib, skuter
+   chorraha ichida "joyimni bilmayman" deb to'xtardi va ko'ndalang mashinalar urib ketardi (40 marshrutdan 15 tasida).
+   Endi bu qoida faqat oddiy yo'lda ishlaydi.
+5. **Binolar orasida filtr o'ziga ortiqcha ishondi** (9 m xato, sigma 1 m). Endi qabul qilgich aytgan aniqlikni
+   hisobga oladi.
+6. **3-bosqich rejalovchisidagi xato** (filtr bilan vaqt o'zgargani uchun chiqdi): bekatdagi avtobusni chorrahadan
+   oldin aylanib o'tishni boshlagan skuter, chap polosadagi mashinalar yo'l bermagani uchun chorraha chiqishida
+   qoldi. Endi aylanib o'tish rejimida chorrahaga faqat yon joyiga chiqib bo'lgach kiradi.
+
+## Natija
+
+200 ta tasodifiy ko'cha (3-bosqichdagi ko'chalar, har biriga tasodifiy datchik sharoiti: 40% da GPS 40-200 m
+yo'qoladi, 25% da sakraydi, 25% da binolar orasi, 30% da bordyur 5-25 m ko'rinmaydi). Har bir ko'cha ikki marta
+yuriladi: simulyator aniq joyni bergan holda va skuter joyini o'zi baholagan holda.
+
+| Ko'rsatkich | Aniq joy | Joylashuv filtri |
+|---|---|---|
+| Manzilga o'zi yetdi | 175/200 | 174/200 |
+| Qotib qolib operator chaqirdi | 25 | 26 (shundan 1 tasi joyini bilmagani uchun) |
+| To'qnashuv yoki bordyurga tegish | 1 (kocha-192, 3-bosqichdagi odam holati) | 1 (o'sha kocha-192) |
+| Chorraha ichida to'xtab qolish | 0 | 0 |
+| O'rtacha tezlik | 12,2 km/soat | 12,2 km/soat |
+
+Joy xatosi (filtr bilan): marshrut bo'ylab o'rtacha marshrutda eng ko'pi 1,5 m, eng yomonida 4,6 m; chorrahaga
+15 m qolganda eng ko'pi 0,53 m (kamera chorraha chetini ko'radi). Yon tomonga oddiy yo'lda 5-15 sm; bordyur
+ko'rinmaydigan joyda (chorraha, chap burilish burchagi) 1 m gacha, lekin filtr buni biladi va bordyurga tegish yo'q.
+Haqiqiy xato filtr aytgan 3 sigma ichida: eng yomon marshrutda 80% vaqt, qolganlarida 99-100%.
+
+Chirchiq xaritasida (`--chirchiq 2 --joylashuv`, 20 ta yetkazish): to'qnashuv 0, chorraha ichida to'xtash 0,
+8 tasi o'zi yetdi (aniq joy bilan 9), operator chaqiruvlarining hammasi svetoforsiz katta ko'chani kesishda.
+Joy xatosi: marshrut bo'ylab 1,4 m, chorrahaga 15 m qolganda 0,3 m.
+
+CI 100 ta ko'cha bilan ishlaydi (kocha-192 kirmaydi).
+
+## Cheklovlar va keyingi qadamlar
+
+- **Xarita aniq deb olingan**: simulyatorda dunyo va skuter xaritasi bir xil. Haqiqiy OpenStreetMap ko'chalari
+  1-3 m xato chizilgan, chorraha chetlari va burilish boshlari xaritada yo'q. Ularni Chirchiq videolaridan yoki
+  joyida o'lchab, xaritaga qo'shish kerak.
+- Skuter marshruti xaritadan bo'laklar (to'g'ri chiziq va yoy) sifatida tuziladi, GPS esa kenglik va uzunlik beradi.
+  Haqiqiy skuterda marshrut chizig'i xaritadagi haqiqiy nuqtalardan tuzilishi kerak (`MarshrutChizigi`).
+- Kamera o'lchovlari (bordyur, chorraha cheti) hali "shovqinli aniqlash" modeli. Ularni haqiqiy tasvirdan
+  aniqlash ko'rish modulining vazifasi (Chirchiq videolari, 3D simulyatsiya).
+- Tunda (yo'l cheti ko'rinmasa) skuter to'xtab operatorni chaqiradi: tungi ish uchun chiroq yoki IQ kamera kerak.
+- Bitta tasodifiy ko'chada (avvalgi sinovda) skuter to'xtagan mashinani aylanib o'tishni uning orqa burchagidan
+  0,72 m da boshlagan (eshik zonasi chegarasi 0,8 m). Joy xatosi 3 sm edi: bu rejalovchining chegaraviy harakati.
