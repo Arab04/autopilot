@@ -56,5 +56,5 @@ jobs:
       - run: python -m pip install matplotlib
       - run: python joylashuv_sinovlar.py 100
         working-directory: sim/world
-      - run: python xarita_sinovlar.py --chirchiq 1 --joylashuv
+      - run: python xarita_sinovlar.py --chirchiq 2 --joylashuv
         working-directory: sim/world
