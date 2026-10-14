@@ -1,0 +1,11 @@
+# Avval ./ornatish.sh SERVER_MANZILI, keyin: docker compose up -d
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:1.9.3
+    container_name: dron-video
+    restart: unless-stopped
+    # MediaMTX hujjatlari bo'yicha majburiy: aks holda Docker UDP portlarini o'zgartirib, SRT va WebRTC buziladi
+    network_mode: host
+    volumes:
+      - ./mediamtx.local.yml:/mediamtx.yml:ro
+      - ./recordings:/recordings

@@ -1,0 +1,50 @@
+# MediaMTX sozlamasi (shablon): dron pultidan videoni qabul qiladi, operatorlarga beradi va yozib boradi.
+# Bu faylni to'g'ridan-to'g'ri ishlatmang: ./ornatish.sh parollarni yaratib, mediamtx.local.yml yozadi.
+# MediaMTX 1.9.x uchun yozilgan (docker-compose.yml dagi versiya).
+
+logLevel: info
+
+# Kim nima qila oladi. Ro'yxatda yo'q foydalanuvchi hech narsa qila olmaydi.
+authMethod: internal
+authInternalUsers:
+  # Pult: faqat "dron" yo'liga video yuboradi
+  - user: pult
+    pass: PULT_PAROLI
+    ips: []
+    permissions:
+      - action: publish
+        path: dron
+  # Operator: faqat ko'radi
+  - user: operator
+    pass: OPERATOR_PAROLI
+    ips: []
+    permissions:
+      - action: read
+        path: dron
+  # Serverning o'zidagi dasturlar (masalan, ko'rish moduli) parolsiz o'qiydi
+  - user: any
+    pass:
+    ips: ['127.0.0.1', '::1']
+    permissions:
+      - action: read
+
+# Portlar (serverda shu portlar ochiq bo'lishi kerak, README 1-bo'lim)
+srtAddress: :8890              # UDP, pult shu orqali yuboradi (tavsiya)
+rtmpAddress: :1935             # TCP, zaxira yo'l
+rtspAddress: :8554             # TCP, VLC, Python, ffprobe
+webrtcAddress: :8889           # TCP, brauzerda ko'rish (eng kam kechikish)
+webrtcLocalUDPAddress: :8189   # UDP, WebRTC video shu port orqali ketadi
+webrtcAdditionalHosts: [SERVER_MANZILI]
+hlsAddress: :8888              # TCP, brauzerda ko'rish (kechikish 3-6 s, lekin hamma joyda ishlaydi)
+
+pathDefaults:
+  record: no
+
+paths:
+  dron:
+    # Har bir parvoz 10 daqiqalik bo'laklarga yoziladi, 7 kundan keyin o'chiriladi
+    record: yes
+    recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+    recordFormat: fmp4
+    recordSegmentDuration: 10m
+    recordDeleteAfter: 7d

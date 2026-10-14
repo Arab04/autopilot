@@ -21,3 +21,14 @@ jobs:
       - run: python -m pip install matplotlib
       - run: python sinovlar.py 100
         working-directory: sim/world
+  dron_video:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - run: python -m pip install pyyaml
+      - run: python sinovlar.py
+        working-directory: drone_video
