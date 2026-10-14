@@ -1,0 +1,12 @@
+  50 ta safar, 126 km, to'qnashuv 0
+  100 ta safar, 273 km, to'qnashuv 0
+  150 ta safar, 410 km, to'qnashuv 0
+  200 ta safar, 535 km, to'qnashuv 0
+  250 ta safar, 652 km, to'qnashuv 0
+  300 ta safar, 787 km, to'qnashuv 0
+  350 ta safar, 935 km, to'qnashuv 0
+
+Jami: 1001 km, 376 ta safar (90 soat), o'zi yetdi 200, operator 176, to'qnashuv 0
+Mashina yonidan o'tishda eng kam oraliq: 0.30 m; favqulodda tormoz: 21
+
+O'tmagan sinovlar: yo'q

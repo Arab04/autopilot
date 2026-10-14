@@ -194,6 +194,24 @@ bir polosada 0,07-0,17 mashina/s, ya'ni 240-600 mashina/soat; haqiqiy oqim o'lch
 - O'ngga burilishdan keyin 1-2 m da turgan to'siqni skuter aylanib o'tmay, abadiy kutardi (burilishning oxirgi
   2 m i endi hisobga olinmaydi).
 
+### 1000 km sinovi (2026-10-14)
+
+    python3 xarita_sinovlar.py --km 1000
+
+"Skuterga tayyor" 1-mezoni: Chirchiqda ombordan 10 manzilga borib-qaytib, jami 1000 km. Natija
+(`natijalar_1000km.txt`): **1001 km, 376 safar, to'qnashuv 0**. 200 safarda skuter o'zi yetdi, 176 tasida operator
+chaqirildi (asosan Navoiy ko'chasida, operator yordami bilan safar shu yerda tugaydi deb hisoblanadi).
+
+Birinchi uchta 1000 km yugurishida 1-3 tadan to'qnashuv chiqdi. Tuzatilganlari:
+- E'tiborsiz haydovchi chorraha oldida keskin tormoz bergan skuterga orqadan urildi: endi chiziqqa yumshoq
+  tormoz (1,2 m/s²) bilan oldinroq sekinlashadi va chiziqda bordyurga yaqinroq (0,55 m) turadi.
+- Chapga ikki bosqichli burilishda ikkinchi o'tish chizig'ida skuter qotib qolardi.
+- To'xtab turgan joyidan qo'zg'alganda yonga keskin burilib, orqa qismi yonidan o'tayotgan velosipedchiga tegdi:
+  endi qo'zg'alishdan oldin orqa va yonini tekshiradi, past tezlikda yonga asta suriladi, chorrahani kesayotganda
+  yonga surilmaydi.
+- Chapga keskin burilishga ichki tomondan (to'siqni aylanib o'tgandan keyin) kirganda skuter bunday radiusda
+  burila olmay bordyurga surildi: endi burilish oldidan ichki tomon cheklanadi (eng kichik radius 2,9 m).
+
 ### Haqiqiy xaritada topilgan xatolar (tuzatildi)
 
 Sun'iy shaharda ko'rinmagan, birinchi Chirchiq yugurishida 50 ta yetkazishdan 11 tasida to'qnashuv bo'lgan
