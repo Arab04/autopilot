@@ -1,7 +1,7 @@
 """Dron videosini ko'rsatayotgan Android qurilma ("APP Flight" rejimidagi telefon yoki
 Android pult) haqida ma'lumot yig'adi: qurilma, ilovalar, tarmoqlar, internet va video
 qaysi IP/port orqali kelayotgani. Shunga qarab videoni serverga uzatishning eng yaxshi
-yo'li tanlanadi (README, 3-5-bo'limlar).
+yo'li tanlanadi (README, 4-5-bo'limlar).
 
 Tayyorgarlik: qurilmada "Dasturchi sozlamalari" -> "USB orqali nosozliklarni tuzatish"
 (USB debugging) yoqiladi, qurilma kompyuterga USB bilan ulanadi, kompyuterda `adb` bor.
@@ -180,18 +180,18 @@ def tahlil(x):
         qatorlar.append(f"* Video {nom} orqali kelyapti ({q:.1f} Mbit/s).")
         if nom.startswith("wlan") and not any(i == nom and v for _, i, v, _ in tarm):
             qatorlar.append("* Wi-Fi dronga ulangan va unda internet yo'q: serverga yuborish uchun internet "
-                            "boshqa yo'ldan kerak (SIM, USB-Ethernet). README 3-bo'lim.")
+                            "boshqa yo'ldan kerak (SIM, USB-Ethernet). README 4-bo'lim.")
     else:
         qatorlar.append("* Hech bir IP tarmoqda katta oqim ko'rinmadi: video IP tarmoqsiz (qurilmaning ichki "
                         "radio moduli orqali) kelyapti yoki o'lchash paytida video yo'q edi.")
     if not internetli:
-        qatorlar.append("* Qurilmada hozir internet yo'q. Serverga yuborishdan oldin uni ulash kerak (README 3-bo'lim).")
+        qatorlar.append("* Qurilmada hozir internet yo'q. Serverga yuborishdan oldin uni ulash kerak (README 4-bo'lim).")
     rtsp = [s for s in tinglovchilar if s.lokal_port in RTSP_PORTLAR]
     if rtsp:
         qatorlar.append(f"* Qurilmada RTSP server bor (port {rtsp[0].lokal_port}): toza oqim yo'lini sinab ko'ring "
-                        "(README 5-bo'lim).")
-    qatorlar.append("* Asosiy yo'l har qanday holatda ishlaydi: ekranni Larix Screencaster bilan uzatish "
-                    "(README 2-bo'lim).")
+                        "(README 3-bo'lim).")
+    qatorlar.append("* Zaxira yo'l har qanday holatda ishlaydi: ekranni Larix Screencaster bilan uzatish "
+                    "(README 4-bo'lim). Pult QR kodda IP bersa, dron_qidiruv.py afzal (README 2-bo'lim).")
     return qatorlar
 
 

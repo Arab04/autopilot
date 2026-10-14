@@ -4,17 +4,20 @@
 #   ./oqim.sh sinov   SERVER PULT_PAROLI          sinov tasvirini serverga yuboradi (telefon o'rnida)
 #   ./oqim.sh tekshir SERVER OPERATOR_PAROLI      serverga video kelyaptimi: kodek, o'lcham, kadr tezligi
 #   ./oqim.sh rele    KIRISH SERVER PULT_PAROLI   boshqa manbadan serverga uzatadi, uzilsa qayta ulanadi.
-#                                                 KIRISH: rtsp://... (qurilmadagi oqim) yoki /dev/video0 (HDMI karta)
+#                                                 KIRISH: rtsp://..., http://... (MJPEG), tcp://... (xom oqim)
+#                                                 yoki /dev/video0 (HDMI karta). Manzilni dron_qidiruv.py topadi.
 #
-# Sozlamalar (ixtiyoriy): YOL=dron, DAVOMIYLIK=60 (sinov, s), BITREYT=2500k, RTSP_TRANSPORT=tcp
+# Sozlamalar (ixtiyoriy): YOL=dron, DAVOMIYLIK=60 (sinov, s), BITREYT=2500k, RTSP_TRANSPORT=tcp,
+#   KIRISH_FORMAT=h264 (xom tcp:// oqim uchun ffmpeg formati, dron_qidiruv.py aytadi)
 set -euo pipefail
 
 YOL="${YOL:-dron}"
 DAVOMIYLIK="${DAVOMIYLIK:-60}"
 BITREYT="${BITREYT:-2500k}"
 RTSP_TRANSPORT="${RTSP_TRANSPORT:-tcp}"
+KIRISH_FORMAT="${KIRISH_FORMAT:-}"
 
-yordam() { sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+yordam() { sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
 
 srt_manzil() { echo "srt://$1:8890?streamid=publish:$YOL:pult:$2&pkt_size=1316"; }
 
@@ -58,7 +61,7 @@ rele() {
   case "$kirish" in
     rtsp://*)   manba=(-rtsp_transport "$RTSP_TRANSPORT" -i "$kirish" -c:v copy -an) ;;
     /dev/video*) manba=(-f v4l2 -framerate 30 -video_size 1280x720 -i "$kirish" "${KODLASH[@]}") ;;
-    *)          manba=(-i "$kirish" "${KODLASH[@]}") ;;
+    *)          manba=(${KIRISH_FORMAT:+-f "$KIRISH_FORMAT"} -i "$kirish" "${KODLASH[@]}") ;;
   esac
   while true; do
     ffmpeg -hide_banner -loglevel warning -stats "${manba[@]}" -f mpegts "$(srt_manzil "$server" "$parol")" || true

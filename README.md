@@ -12,7 +12,7 @@ Reja: [docs/dastur-reja.md](docs/dastur-reja.md)
 | `sim/balance/` | Muvozanat va yon g'ildirak simulyatsiyasi | 1-versiya, 11 ta sinov |
 | `autopilot/` | **Skuter dasturi**: kuzatish, yo'l tanlash, xavfsizlik qatlami | 1-versiya |
 | `sim/world/` | Virtual trotuar (2D): piyodalar, to'siqlar, kamera nosozligi | 1-versiya, 8 + 200 ta sinov |
-| `drone_video/` | XiL 019 dron videosini telefon orqali serverga uzatish (MediaMTX) | 1-versiya, 12 ta sinov |
+| `drone_video/` | XiL 019 dron videosini pultdan (Wi-Fi) yoki telefon orqali serverga uzatish (MediaMTX) | 1-versiya, 16 ta sinov |
 | `sim/3d/` | 3D simulyatsiya (Gazebo + ROS 2) | rejada |
 | `perception/` | Kamera orqali ko'rish | rejada |
 | `localization/` | Joylashuvni aniqlash | rejada |

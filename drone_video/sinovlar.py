@@ -1,21 +1,26 @@
 """drone_video sinovlari. Ishga tushirish: python3 sinovlar.py
 
-Android qurilma tahlili (android_malumot.py) soxta qurilma ma'lumotlarida, server sozlash skripti
+Android qurilma tahlili (android_malumot.py) soxta qurilma ma'lumotlarida, pult qidiruvi
+(dron_qidiruv.py) soxta RTSP/HTTP/RTMP/xom H.264 serverlarida, server sozlash skripti
 (server/ornatish.sh) vaqtinchalik papkada, oqim.sh esa ffmpeg bo'lsa mahalliy SRT
-qabul qiluvchiga sinov tasvirini yuborib tekshiriladi.
+qabul qiluvchiga video yuborib tekshiriladi.
 """
 
 import os
 from pathlib import Path
 import re
 import shutil
+import signal
 import socket
+import socketserver
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 from android_malumot import BUYRUQLAR, hex_ip, soketlar, uid_paketlar, trafik, tarmoqlar, tahlil, yig
+from dron_qidiruv import qr_ip, xom_oqim, tekshir
 
 PAPKA = Path(__file__).resolve().parent
 SARLAVHA = "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"
@@ -167,6 +172,143 @@ def yig_sinovi():
     return set(x["trafik"]) == {"wlan0"} and x["trafik"]["wlan0"][0] > 0 and "Qurilma: XiL RC-019" in matn(x)
 
 
+class _Server(socketserver.ThreadingTCPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
+
+def soxta_server(ishlov):
+    """127.0.0.1 da TCP server: har bir ulanishda ishlov(soket) chaqiriladi -> (server, port)."""
+    class Ulanish(socketserver.BaseRequestHandler):
+        def handle(self):
+            self.request.settimeout(3)
+            try:
+                ishlov(self.request)
+            except OSError:
+                pass
+    srv = _Server(("127.0.0.1", 0), Ulanish)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv, srv.server_address[1]
+
+
+def rtsp_ishlov(s):
+    data = s.recv(4096)
+    if not data:
+        return
+    usul, url = data.split(b" ")[:2]
+    if usul == b"OPTIONS":
+        s.sendall(b"RTSP/1.0 200 OK\r\nCSeq: 1\r\nPublic: OPTIONS, DESCRIBE, SETUP, PLAY\r\n\r\n")
+    elif usul == b"DESCRIBE" and url.endswith(b"/live"):
+        sdp = b"v=0\r\ns=dron\r\nm=video 0 RTP/AVP 96\r\na=rtpmap:96 H264/90000\r\n"
+        s.sendall(b"RTSP/1.0 200 OK\r\nCSeq: 2\r\nContent-Type: application/sdp\r\n"
+                  b"Content-Length: %d\r\n\r\n" % len(sdp) + sdp)
+    else:
+        s.sendall(b"RTSP/1.0 404 Not Found\r\nCSeq: 2\r\n\r\n")
+
+
+def mjpeg_ishlov(s):
+    data = s.recv(4096)
+    if not data:
+        return
+    yol = data.split(b" ")[1]
+    if yol == b"/?action=stream":
+        s.sendall(b"HTTP/1.0 200 OK\r\nContent-Type: multipart/x-mixed-replace; boundary=kadr\r\n\r\n")
+        for _ in range(3):
+            s.sendall(b"--kadr\r\nContent-Type: image/jpeg\r\n\r\n\xff\xd8\xff\xe0" + bytes(200) + b"\xff\xd9\r\n")
+    elif yol == b"/":
+        tana = b"<html><title>XiL kamera</title></html>"
+        s.sendall(b"HTTP/1.0 200 OK\r\nContent-Type: text/html\r\nContent-Length: %d\r\n\r\n" % len(tana) + tana)
+    else:
+        s.sendall(b"HTTP/1.0 404 Not Found\r\n\r\n")
+
+
+def h264_ishlov(baytlar):
+    """Ulanish bilanoq xom H.264 yuboradigan pult (arzon Wi-Fi kameralarga o'xshash)."""
+    def ishlov(s):
+        for i in range(0, len(baytlar), 4096):
+            s.sendall(baytlar[i:i + 4096])
+            time.sleep(0.002)
+    return ishlov
+
+
+def rtmp_ishlov(s):
+    data = s.recv(2048)
+    if data[:1] == b"\x03":
+        s.sendall(b"\x03" + bytes(3072))
+
+
+def jim_ishlov(s):
+    s.recv(4096)
+
+
+SOXTA_H264 = bytes.fromhex("00000001674d401fe8802802dd80b501010140000003004000000c83c60c4480"
+                           "0000000168ebef20" "0000000165888040") + bytes(3000)
+
+
+def yopiq_port():
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    return port
+
+
+def qidiruv_sinovi():
+    """dron_qidiruv.tekshir: har xil soxta pult serverlarida video manzillarini to'g'ri topadi."""
+    serverlar = {nom: soxta_server(f) for nom, f in [
+        ("rtsp", rtsp_ishlov), ("mjpeg", mjpeg_ishlov), ("h264", h264_ishlov(SOXTA_H264)),
+        ("rtmp", rtmp_ishlov), ("jim", jim_ishlov)]}
+    port = {nom: p for nom, (_, p) in serverlar.items()}
+    try:
+        qatorlar, videolar = tekshir("127.0.0.1", sorted(port.values()) + [yopiq_port()],
+                                     kashf=False, tekshirish=False)
+    finally:
+        for srv, _ in serverlar.values():
+            srv.shutdown()
+            srv.server_close()
+    m = "\n".join(qatorlar)
+    kutilgan = {(f"rtsp://127.0.0.1:{port['rtsp']}/live", "video, H264"),
+                (f"http://127.0.0.1:{port['mjpeg']}/?action=stream", "MJPEG video oqimi"),
+                (f"tcp://127.0.0.1:{port['h264']}", "H.264")}
+    if set(videolar) != kutilgan:
+        return f"topilgan videolar: {videolar}"
+    for kerak in (f"{port['rtmp']}: RTMP", f"{port['jim']}: noma'lum - javob bermadi",
+                  "veb sahifa: text/html 'XiL kamera'", "./oqim.sh rele "):
+        if kerak not in m:
+            return f"hisobotda yo'q: {kerak!r}"
+    return f"Ochiq TCP portlar: {', '.join(map(str, sorted(port.values())))}" in m
+
+
+def rele_tcp_sinovi():
+    """oqim.sh rele: dron_qidiruv topgan xom H.264 tcp:// oqimini (KIRISH_FORMAT=h264) SRT orqali uzatadi."""
+    if not shutil.which("ffmpeg"):
+        return None
+    with tempfile.TemporaryDirectory() as t:
+        fayl = Path(t, "dron.h264")
+        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi",
+                        "-i", "testsrc2=size=640x360:rate=25", "-t", "4", "-c:v", "libx264",
+                        "-pix_fmt", "yuv420p", "-f", "h264", str(fayl)], check=True)
+        srv, port = soxta_server(h264_ishlov(fayl.read_bytes()))
+        chiqish = Path(t, "qabul.ts")
+        qabul = subprocess.Popen(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                                  "-i", "srt://127.0.0.1:8890?mode=listener", "-c", "copy", str(chiqish)],
+                                 stderr=subprocess.DEVNULL)
+        time.sleep(1)
+        rele = subprocess.Popen(["bash", str(PAPKA / "oqim.sh"), "rele", f"tcp://127.0.0.1:{port}",
+                                 "127.0.0.1", "abc123"], env={**os.environ, "KIRISH_FORMAT": "h264"},
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        try:
+            qabul.wait(timeout=30)
+        finally:
+            os.killpg(rele.pid, signal.SIGTERM)
+            qabul.kill()
+            srv.shutdown()
+            srv.server_close()
+        info = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_name,width,height",
+                               "-of", "csv=p=0", str(chiqish)], capture_output=True, text=True).stdout.split("\n")[0]
+        return "" if info == "h264,640,360" else f"qabul qilingan oqim: {info!r}"
+
+
 def matn(x):
     return "\n".join(tahlil(x))
 
@@ -214,6 +356,16 @@ SINOVLAR = [
     ("haqiqiy /proc/net/tcp o'qiladi", proc_net_sinovi),
     ("server/ornatish.sh: parollar va sozlama", ornatish_sinovi),
     ("oqim.sh sinov: SRT orqali H.264 1280x720 yetib boradi", oqim_sinovi),
+    ("QR matni: IP:192.168.0.184;TP:MEDIA;",
+     lambda: qr_ip("IP:192.168.0.184;TP:MEDIA;") == "192.168.0.184" and qr_ip(" 10.0.0.5 ") == "10.0.0.5"),
+    ("Oqim turini baytlardan aniqlash: H.264, H.265, JPEG, TS, FLV",
+     lambda: xom_oqim(SOXTA_H264) == "H.264"
+     and xom_oqim(bytes.fromhex("0000000140010c01") + bytes(64)) == "H.265"
+     and xom_oqim(b"\xff\xd8\xff\xe0" + bytes(64)) == "JPEG (MJPEG)"
+     and xom_oqim((b"\x47" + bytes(187)) * 3) == "MPEG-TS"
+     and xom_oqim(b"FLV\x01\x05") == "FLV" and xom_oqim(b"salom dunyo") == ""),
+    ("dron_qidiruv: RTSP, MJPEG, xom H.264, RTMP, jim va yopiq portlar", qidiruv_sinovi),
+    ("oqim.sh rele: xom H.264 (tcp://) SRT orqali serverga yetadi", rele_tcp_sinovi),
 ]
 
 
