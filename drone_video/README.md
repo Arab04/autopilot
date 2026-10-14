@@ -84,6 +84,10 @@ faqat ilova maxsus so'rov yuborgandan keyin boshlaydi. Bu so'rovni bilish uchun 
    ilova **HFDrone** (Google Play: `com.rxdrone.gpshf`; iPhone: "HF Drone"). Bu ilova pult QR kodini
    skanerlay oladi. Play Market'da topilmasa, APK'ni APKPure yoki APKCombo'dan shu nom bilan oling.
    Bu taxmin: pult qutisi yoki qo'llanmasida boshqa ilova nomi yozilgan bo'lsa, o'shani oling.
+   **Muhim:** ilovaning Xitoy versiyasi ishlashdan oldin Xitoy fuqaro aviatsiyasi (CAAC) UOM tizimida
+   dronni ro'yxatdan o'tkazishni talab qiladi (`实名登记`: UOM ilovasidagi QR kod skrinshoti va dron
+   seriya raqami). Bu ro'yxat odatda Xitoy hujjatlari va telefon raqami bilan qilinadi. Bu cheklovni
+   aylanib o'tmang: sotuvchi yoki ishlab chiqaruvchidan ilovaning **xalqaro (global) versiyasini** so'rang.
 2. **Ilova ishlasa, video darhol serverga uzatiladi:** 4-bo'limdagi zaxira yo'l (Larix Screencaster).
 3. **Toza video uchun trafikni yozib oling.** Telefonga **PCAPdroid** (Google Play, bepul, root kerak
    emas) o'rnating. Unda "Target app" sifatida dron ilovasini tanlang, yozishni boshlang, dron ilovasida
