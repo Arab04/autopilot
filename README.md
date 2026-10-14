@@ -12,6 +12,7 @@ Reja: [docs/dastur-reja.md](docs/dastur-reja.md)
 | `sim/balance/` | Muvozanat va yon g'ildirak simulyatsiyasi | 1-versiya, 11 ta sinov |
 | `autopilot/` | **Skuter dasturi**: kuzatish, yo'l tanlash, xavfsizlik qatlami | 1-versiya |
 | `sim/world/` | Virtual trotuar (2D): piyodalar, to'siqlar, kamera nosozligi | 1-versiya, 8 + 200 ta sinov |
+| `drone_video/` | XiL 019 dron videosini pultdan (Wi-Fi) yoki telefon orqali serverga uzatish (MediaMTX) | 1-versiya, 16 ta sinov |
 | `sim/3d/` | 3D simulyatsiya (Gazebo + ROS 2) | rejada |
 | `perception/` | Kamera orqali ko'rish | rejada |
 | `localization/` | Joylashuvni aniqlash | rejada |
@@ -24,3 +25,4 @@ Reja: [docs/dastur-reja.md](docs/dastur-reja.md)
     python3 -m pip install numpy matplotlib
     cd sim/balance && python3 sinovlar.py
     cd sim/world && python3 sinovlar.py 200
+    cd drone_video && python3 sinovlar.py
