@@ -131,7 +131,12 @@ class YolOtishBoshqaruvi:
         """
         oc = self.oc
         self.v_otish = min(oc.otish_tezligi, yol_tezligi)
-        b = next((b for b in marshrut.otishlar() if s - oc.skuter_orqa < b.oxiri + 0.5 and b.boshi - s < 10), None)
+        yaqin = [b for b in marshrut.otishlar() if s - oc.skuter_orqa < b.oxiri + 0.5 and b.boshi - s < 10]
+        b = yaqin[0] if yaqin else None
+        # Chapga ikki bosqichli burilish: birinchisini o'tib, ikkinchisining chizig'iga yetdik - endi u hal qiladi
+        if (b is not None and self.ruxsat.get(b.boshi) and len(yaqin) > 1
+                and s >= yaqin[1].boshi - oc.chiziqdan - oc.skuter_old - 0.4):
+            b = yaqin[1]
         if b is None:
             return math.inf, None
         if self.ruxsat.get(b.boshi):

@@ -40,6 +40,9 @@ class YolSozlamalari:
     skuter_r: float = 0.35
     skuter_yarim_uzunlik: float = 0.3
     bordyurdan: float = 0.8           # velosiped yo'lagi bo'lmasa, bordyurdan masofa (m)
+    min_radius: float = 2.9           # skuterning eng kichik burilish radiusi (g'ildirak bazasi 1,05 m, rul 20°) (m)
+    chiziqda_bordyurdan: float = 0.55 # o'tish chizig'ida kutganda bordyurga yaqinroq turamiz: orqadan kelgan
+                                      # mashina polosasi o'rtasida yursa ham bizga tegmasin (m)
     eshikdan: float = 1.0             # to'xtab turgan mashinadan bo'sh joy (eshik ochilishi) (m)
     zaxira_odam: float = 0.8
     zaxira_velosiped: float = 0.8
@@ -54,6 +57,8 @@ class YolSozlamalari:
     orqa_tormoz: float = 2.0          # orqadagi haydovchidan kutiladigan qulay tormoz (m/s^2)
     orqa_zaxira: float = 8.0          # (m)
     yon_otish_tezligi: float = 1.0    # yon tomonga siljish tezligi (m/s)
+    yaqinlashish_tormoz: float = 1.2  # o'tish chizig'iga yaqinlashishda yumshoq tormoz: orqadagi haydovchi
+                                      # (ayniqsa e'tiborsizi) bizga urilmasligi uchun oldinroq sekinlashamiz (m/s^2)
     yon_tezlanish: float = 1.5        # burilishda (m/s^2)
     toxtagan_vaqt: float = 2.0        # mashina shuncha turib qolsa, "to'xtab turgan" deb hisoblanadi (s)
     otish_tezligi: float = 15 * KMH   # chorrahani kesib o'tish tezligi
@@ -450,15 +455,15 @@ class YolAvtopilot:
         tezlik = b.tezlik
         if holat is not None and holat != "otish":
             tezlik = min(tezlik, v_otish)
-        # Keyingi o'tish juda yaqin bo'lsa (chapga ikki bosqichli burilish), hozirgisini o'tayotganda ham
-        # uning chizig'ida to'xtay oladigan tezlikda boramiz: aks holda ikkinchi o'tish ichida to'xtab qolamiz
+        # Keyingi (hali ruxsat olinmagan) o'tish chizig'ida yumshoq tormoz bilan to'xtay oladigan tezlikda boramiz.
+        # Chapga ikki bosqichli burilishda hozirgisini o'tayotganda ham: aks holda ikkinchi o'tish ichida qolamiz
         oc = self.otish.oc
         for x in self.marshrut.otishlar():
             chiziq = x.boshi - oc.chiziqdan - oc.skuter_old
             if chiziq - s < -0.3 or self.otish.ruxsat.get(x.boshi):
                 continue
-            if chiziq - s < 30:
-                tezlik = min(tezlik, math.sqrt(2 * c.tormoz * max(0.0, chiziq - s)))
+            if chiziq - s < 40:
+                tezlik = min(tezlik, math.sqrt(2 * c.yaqinlashish_tormoz * max(0.0, chiziq - s)))
             break
         if holat != "otish":
             v_burilish = self.rej.burilishga_yol_berish(s, v, self.obyektlar, self.marshrut)
@@ -467,7 +472,57 @@ class YolAvtopilot:
                 if v_burilish < 0.1:
                     holat = "yol_berish"
         yangi_holat = b.holat if holat in (None, "otish", "otishga_yaqinlashish") else holat
-        return Buyruq(tezlik * f, b.d_maqsad, b.tormoz, yangi_holat)
+        d_maqsad = b.d_maqsad
+        if (holat in ("otishga_yaqinlashish", "bosh_joy_kutish", "operator_kutish") and b.holat == "yurish"
+                and abs(b.d_maqsad - c.bordyurdan) < 0.05 and self.marshrut.bolak(s).turi == "yol"):
+            # Faqat hali tez ketayotganda suriladi: sekin tezlikda yonga surilish skuterni qiyshaytirib qo'yadi
+            # (orqa qismi yon tomonga chiqadi).
+            if v >= 1.5:
+                d_maqsad = c.chiziqda_bordyurdan
+        # Oldinda (12 m ichida) chapga keskin burilish bormi: qayerda va qanchalik keskin
+        keskin = [(x, self.marshrut.egrilik(s + x)) for x in (0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0)]
+        keskin = [(x, k) for x, k in keskin if k > 0.05]
+        if (holat == "otish" and b.holat == "yurish" and abs(b.d_maqsad - c.bordyurdan) < 0.05
+                and not keskin):
+            # Chorrahani kesib o'tayotganda (ayniqsa joyidan qo'zg'alib) yonga surilmaymiz: past tezlikda keskin
+            # rul burish bordyurga urilishga, orqa qismi esa yonimizdan o'tayotganga tegishiga olib keladi.
+            # Chetga keyingi to'g'ri yo'lda asta qaytamiz.
+            d_maqsad = d
+        if v < 0.3 and tezlik > v and self._yonimizdan_otmoqda(s, d, v):
+            tezlik = 0.0  # joyidan qo'zg'alishdan oldin: yonimizdan velosiped / mashina o'tib ketsin
+        # Chapga keskin burilishda ichki tomonga juda chiqsak, skuter bunday radiusda burila olmaydi
+        # (masalan to'siqni aylanib o'tib chorrahaga kirganda): ichki tomonni cheklaymiz
+        if keskin:
+            k = max(k for _, k in keskin)
+            chegara = max(c.chiziqda_bordyurdan, 1 / k - c.min_radius - 0.6)
+            if d_maqsad > chegara:
+                d_maqsad = chegara
+                if d - chegara > 0.3 and not self.rej.orqa_xavfsiz(s, v, chegara, self.obyektlar, d, yon_zaxira=0.3):
+                    # O'ng tomonda (orqadan) kimdir bor: surilmaymiz, burilishdan oldin to'xtab, o'tib ketishini
+                    # kutamiz (bu joydan burilishga kirsak, skuter burila olmay o'ngga suriladi)
+                    x0 = keskin[0][0]
+                    d_maqsad = d
+                    tezlik = min(tezlik, math.sqrt(2 * c.tormoz * max(0.0, x0 - 0.5)) if x0 > 0 else 0.3)
+        d_maqsad = max(d_maqsad, c.chiziqda_bordyurdan)  # bordyurga bundan yaqin bormaymiz
+        if v < 1.5 and (yangi_holat != "aylanib" or self.marshrut.bolak(s).turi != "yol"):
+            # Past tezlikda yonga keskin burilmaymiz: skuter qiyshayib, orqa qismi yon tomonga chiqadi yoki
+            # bordyurga uriladi. Maqsadga asta-sekin (tezlik oshgani sari tezroq) suriladi. To'g'ri yo'lda
+            # to'siqni aylanib o'tish bundan mustasno: u joyidan yonga chiqib olishi kerak.
+            qadam = 0.25 + 0.3 * v
+            d_maqsad = d + max(-qadam, min(qadam, d_maqsad - d))
+        return Buyruq(tezlik * f, d_maqsad, b.tormoz, yangi_holat)
+
+    def _yonimizdan_otmoqda(self, s, d, v):
+        """Orqadan yoki yonimizdan bizdan tez harakatlanayotgan narsa yaqin o'tyaptimi (ko'zgu tekshiruvi)."""
+        c = self.c
+        for o in self.obyektlar:
+            if o.turi == "to'siq" or o.vs < v + 0.5:
+                continue
+            orqada = (s - c.skuter_yarim_uzunlik) - (o.s + o.uzunlik / 2)   # bizning orqamizgacha bo'sh joy
+            yonida = (o.s - o.uzunlik / 2) < s + c.skuter_yarim_uzunlik + 0.5 and orqada < 0
+            if (0 <= orqada < 8.0 or yonida) and abs(o.d - d) - o.eni / 2 - c.skuter_r < 0.5:
+                return True
+        return False
 
     def _kesuvchilarni_eslash(self, t, korilgan, eslash=0.6):
         """Kamera bir-ikki kadrda mashinani ko'rmay qolsa ham, uni qisqa vaqt eslab, harakatini davom ettiramiz."""

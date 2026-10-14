@@ -3,6 +3,7 @@
     python3 xarita_sinovlar.py                      # sun'iy sinov shahri (xarita moduli sinovi)
     python3 xarita_sinovlar.py --osm chirchiq.osm   # haqiqiy OpenStreetMap fayli, 10 ta tasodifiy manzil
     python3 xarita_sinovlar.py --chirchiq [N]       # Chirchiq xaritasi: ombordan 10 manzilga, har biri N marta (3)
+    python3 xarita_sinovlar.py --km 1000            # Chirchiqda jami 1000 km (borish va qaytish), to'qnashuvsiz
 
 Sun'iy shahar xarita modulini tekshirish uchun: unda avtomagistral, bir tomonlama ko'cha, svetoforli katta yo'l,
 velosiped yo'lagi, parkovka, qiya ko'cha va egilgan ko'cha bor. Bu Chirchiq emas.
@@ -319,8 +320,48 @@ def chirchiq(takror):
     return 1 if xatolar else 0
 
 
+def uzoq_sinov(km):
+    """'Skuterga tayyor' 1-mezoni: Chirchiqda jami km kilometr yurish, birorta to'qnashuvsiz.
+
+    Ombordan manzilga va manzildan omborga qaytish navbatma-navbat, har safar boshqa ko'cha holati.
+    Operator chaqirilgan yetkazishda shu joygacha yurilgan masofa hisoblanadi.
+    """
+    osm = str(CHIRCHIQ_OSM)
+    bosh = CHIRCHIQ_OMBOR[1:]
+    vazifalar = []
+    for u in range(1000):
+        for k, (_, lat, lon) in enumerate(CHIRCHIQ_MANZILLAR, 1):
+            vazifalar.append((k, osm, bosh, (lat, lon), 2 * u + 100))
+            vazifalar.append((k, osm, (lat, lon), bosh, 2 * u + 101))
+    jami_m, natijalar, xatolar = 0.0, [], []
+    with Pool() as p:
+        for r in p.imap(_sim, vazifalar, chunksize=1):
+            n = r[2]
+            jami_m += n.ortacha_kmh / 3.6 * n.vaqt
+            natijalar.append(r)
+            if not _xavfsiz(n):
+                xatolar.append(f"{n.nomi} ({r[1]}): to'qnashuv")
+                print(f"  TO'QNASHUV: {xatolar[-1]}", flush=True)
+            if len(natijalar) % 50 == 0:
+                print(f"  {len(natijalar)} ta safar, {jami_m / 1000:.0f} km, to'qnashuv {len(xatolar)}", flush=True)
+            if jami_m >= km * 1000:
+                p.terminate()
+                break
+    yetdi = sum(x[2].yetib_keldi for x in natijalar)
+    yordam = sum(x[2].yordam for x in natijalar)
+    soat = sum(x[2].vaqt for x in natijalar) / 3600
+    print(f"\nJami: {jami_m / 1000:.0f} km, {len(natijalar)} ta safar ({soat:.0f} soat), o'zi yetdi {yetdi}, "
+          f"operator {yordam}, to'qnashuv {len(xatolar)}")
+    print(f"Mashina yonidan o'tishda eng kam oraliq: {min(x[2].yaqin_otish for x in natijalar):.2f} m; "
+          f"favqulodda tormoz: {sum(x[2].favqulodda for x in natijalar)}")
+    print("\nO'tmagan sinovlar:", "; ".join(xatolar) if xatolar else "yo'q")
+    return 1 if xatolar else 0
+
+
 def main():
     args = sys.argv[1:]
+    if "--km" in args:
+        return uzoq_sinov(float(args[args.index("--km") + 1]))
     if "--chirchiq" in args:
         i = args.index("--chirchiq")
         takror = int(args[i + 1]) if i + 1 < len(args) and args[i + 1].isdigit() else 3
