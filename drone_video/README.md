@@ -68,11 +68,29 @@ orqali berilishini skript aniqlaydi.
 |---|---|
 | `VIDEO: rtsp://...`, `http://...` yoki `tcp://...` | Skript aytgan buyruq bilan serverga uzating (3-bo'lim) |
 | Portlar ochiq, lekin video topilmadi | Natija faylini jamoaga yuboring: protokolni javoblar bo'yicha aniqlaymiz |
-| Pult tarmoqda bor, lekin TCP portlari yopiq | Video UDP orqali va faqat ilova so'raganda kelishi mumkin. Faylni jamoaga yuboring |
+| Pult tarmoqda bor, lekin TCP portlari yopiq | Video UDP orqali va faqat ilova so'raganda keladi: quyidagi "TCP portlari yopiq bo'lsa" qismi |
 | Pult topilmadi | Kompyuter pult bilan bir Wi-Fi'dami? Routerda mijozlarni ajratish (AP/client isolation) o'chiqmi? |
 
 Pult qayta yoqilganda router unga boshqa IP berishi mumkin. Routerda shu pult uchun doimiy IP
 (DHCP reservation) qiling yoki har safar QR koddagi IP'ni ishlating.
+
+### TCP portlari yopiq bo'lsa (XiL 019 da shunday chiqdi)
+
+2026-yil 14-oktabrdagi tekshiruv: pult `192.168.0.184` da javob beradi (MAC `88:49:2d:de:8c:f0`), lekin
+birorta ham TCP port ochiq emas, SSDP/ONVIF javobi yo'q. Demak video **UDP** orqali keladi va pult uni
+faqat ilova maxsus so'rov yuborgandan keyin boshlaydi. Bu so'rovni bilish uchun ilova bir marta kerak:
+
+1. **Ilovani o'rnating.** Pult proshivkasi `HF-...` deb nomlangan. Bu "HF" oilasidagi dronlarga mos
+   ilova **HFDrone** (Google Play: `com.rxdrone.gpshf`; iPhone: "HF Drone"). Bu ilova pult QR kodini
+   skanerlay oladi. Play Market'da topilmasa, APK'ni APKPure yoki APKCombo'dan shu nom bilan oling.
+   Bu taxmin: pult qutisi yoki qo'llanmasida boshqa ilova nomi yozilgan bo'lsa, o'shani oling.
+2. **Ilova ishlasa, video darhol serverga uzatiladi:** 4-bo'limdagi zaxira yo'l (Larix Screencaster).
+3. **Toza video uchun trafikni yozib oling.** Telefonga **PCAPdroid** (Google Play, bepul, root kerak
+   emas) o'rnating. Unda "Target app" sifatida dron ilovasini tanlang, yozishni boshlang, dron ilovasida
+   QR'ni skanerlab, videoni 30 soniya ko'ring, so'ng to'xtating va `.pcap` faylini saqlang
+   (PCAPdroid'da "Dump mode: PCAP file"). Shu faylni jamoaga yuboring.
+4. Fayldan pult bilan ilova o'rtasidagi so'rov va video formatini aniqlaymiz. Keyin kompyuter yoki
+   Raspberry Pi ilovasiz, o'zi so'rov yuborib videoni qabul qiladigan dastur yoziladi (3-bo'lim).
 
 ## 3. Pultdan serverga uzatish
 

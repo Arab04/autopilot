@@ -287,7 +287,8 @@ def tekshir(ip, portlar=range(1, 65536), kashf=True, tekshirish=True):
                         "protokolni javoblar bo'yicha aniqlaymiz.")
     elif mac:
         qatorlar.append("* Pult tarmoqda bor (MAC javob berdi), lekin TCP portlari yopiq: video UDP orqali "
-                        "va faqat ilova so'raganda yuborilishi mumkin. Shu faylni jamoaga yuboring.")
+                        "va faqat ilova so'raganda yuboriladi. Keyingi qadam: README 2-bo'lim oxiri "
+                        "(ilova va PCAPdroid bilan trafikni yozib olish).")
     else:
         qatorlar.append("* Pult topilmadi. Kompyuter pult bilan bir Wi-Fi'dami? Pult yoqilgan va APP Flight "
                         "rejimidami? Routerda 'mijozlarni ajratish' (AP/client isolation) o'chiqmi?")
