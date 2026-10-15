@@ -35,3 +35,23 @@ jobs:
         working-directory: sim/world
       - run: python xarita_sinovlar.py
         working-directory: sim/world
+  chirchiq:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python xarita_sinovlar.py --chirchiq 2
+        working-directory: sim/world
+  operator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python operator_sinovlar.py
+        working-directory: sim/world

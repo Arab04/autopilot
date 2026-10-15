@@ -1,0 +1,25 @@
+Xarita: Chirchiq (OpenStreetMap): 15869 tugun, 2627 yo'l (skuter yura oladigan asosiy tarmoqda 10664 tugun), 18 ta svetofor belgilangan
+Boshlanish: Ombor (Navoiy/Markaziy bozor oldi)
+Xarita moduli sinovlari: o`tdi
+
+Har bir manzil 10 marta (har safar boshqa mashinalar, odamlar, to'xtagan mashinalar):
+
+Manzil                              Uzunlik  Chorraha O`zi yetdi  Operator  To`qn. O`rt. vaqt
+Jismoniy tarbiya instituti (Troitsk)    7879m        52       5/10         5       0     39.9min
+O'rmon parki                          3780m        39       2/10         8       0     18.6min
+Chirchiq bozori                       4907m        32       9/10         1       0     21.2min
+8-kichik nohiya                       5311m        42       4/10         6       0     24.0min
+Oktyabr (Oktyabr bozori)              2964m        26       5/10         5       0     15.6min
+Pedagogika universiteti               2254m        22      10/10         0       0     10.4min
+Shoshilinch tibbiy yordam markazi     2023m        12       2/10         8       0     11.0min
+4-kichik nohiya                       2634m        26       2/10         8       0     21.2min
+Do'stlik mahallasi                    3835m        27       7/10         3       0     17.3min
+Kimyogar sport majmuasi               1309m        14      10/10         0       0      6.3min
+
+Jami: 100 ta yetkazish. O'zi yetdi: 56, operator chaqirdi: 44, to'qnashuv: 0
+O'rtacha tezlik (yetganlar): 12.7 km/soat
+Svetoforsiz katta ko'chani kesib o'tishda kutish (111 marta): o'rtacha 87 s, mediana 40 s, eng uzoq 470 s; 2 daqiqadan uzoq: 24 marta
+Operator chaqirish sabablari: chorrahada bo'sh joy yo'q - 39, to'siqni aylanib o'tolmadi - 5
+Rasm: natijalar_chirchiq.svg
+
+O'tmagan sinovlar: yo'q

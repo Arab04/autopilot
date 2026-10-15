@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skuter operator paneli</title>
+<style>
+  :root { --fon:#11151b; --panel:#1b222c; --chiziq:#2c3644; --matn:#e6edf3; --xira:#8b98a8;
+          --sariq:#f2c14e; --qizil:#e5484d; --yashil:#3fb950; --kok:#4c9aff; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--fon); color:var(--matn); font:14px/1.4 system-ui, sans-serif; }
+  header { display:flex; align-items:center; gap:16px; padding:8px 16px; border-bottom:1px solid var(--chiziq); flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; font-weight:600; }
+  header .safar { color:var(--xira); }
+  header select { max-width: 230px; }
+  header select, header button, .tugma { background:var(--panel); color:var(--matn); border:1px solid var(--chiziq);
+          border-radius:6px; padding:6px 10px; font:inherit; cursor:pointer; }
+  .tugma:hover, header button:hover { border-color:var(--kok); }
+  .tugma:disabled { opacity:.4; cursor:default; }
+  main { display:grid; grid-template-columns: minmax(0,1fr) 360px; gap:12px; padding:12px 16px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .karta { background:var(--panel); border:1px solid var(--chiziq); border-radius:8px; padding:12px; }
+  #korinish { width:100%; height:calc(100vh - 140px); min-height:420px; display:block; border-radius:8px; background:#2a2f26; }
+  .yon { display:flex; flex-direction:column; gap:12px; }
+  .katta { font-size:34px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .qator { display:flex; justify-content:space-between; gap:8px; color:var(--xira); }
+  .qator b { color:var(--matn); font-weight:600; }
+  #holat { font-size:16px; font-weight:600; margin-top:4px; }
+  #sorov { display:none; border-width:2px; }
+  #sorov.otish { display:block; border-color:var(--sariq); background:#2b2615; }
+  #sorov.yordam { display:block; border-color:var(--qizil); background:#2d1719; }
+  #sorov h2 { margin:0 0 6px; font-size:15px; }
+  .tugmalar { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  .yashil { background:#1f4d2b !important; border-color:var(--yashil) !important; }
+  .qizil { background:#5a1d20 !important; border-color:var(--qizil) !important; }
+  #toxtat { width:100%; padding:14px; font-size:16px; font-weight:700; }
+  .boshqaruv { display:grid; grid-template-columns: repeat(3, 1fr); gap:6px; margin-top:8px; }
+  .boshqaruv .tugma { padding:10px 0; }
+  .izoh { color:var(--xira); font-size:12px; }
+  #xarita { width:100%; height:200px; display:block; }
+  #jurnal { max-height:180px; overflow:auto; font-size:12px; font-family:ui-monospace, monospace; }
+  #jurnal div { padding:2px 0; border-bottom:1px solid #222a35; }
+  .belgi { display:inline-block; padding:1px 8px; border-radius:10px; font-size:12px; background:var(--chiziq); }
+  .belgi.qolda { background:var(--sariq); color:#111; }
+  .belgi.avto { background:#244a7a; }
+  #aloqa { margin-left:auto; color:var(--xira); font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Skuter operator paneli</h1>
+  <span class="safar" id="safarNomi">yuklanmoqda...</span>
+  <span id="aloqa">aloqa: -</span>
+  <select id="manzil" aria-label="Manzil"></select>
+  <select id="yonalish" aria-label="Yo'nalish"><option value="0">ombordan</option><option value="1">omborga qaytish</option></select>
+  <button id="yangiSafar">Yangi safar</button>
+  <select id="vaqtTezligi" aria-label="Simulyator tezligi">
+    <option value="1">1x real vaqt</option><option value="2">2x</option><option value="5">5x</option><option value="10">10x</option>
+  </select>
+  <button id="pauza">Pauza</button>
+</header>
+<main>
+  <canvas id="korinish"></canvas>
+  <div class="yon">
+    <div class="karta">
+      <div class="qator"><span>Tezlik</span><span><span class="belgi avto" id="rejimBelgi">AVTONOM</span></span></div>
+      <div class="katta"><span id="tezlik">0.0</span> <span style="font-size:16px;color:var(--xira)">km/soat</span></div>
+      <div id="holat">-</div>
+      <div class="qator"><span>Yo'l</span><b id="masofa">-</b></div>
+      <div class="qator"><span>Bordyurdan</span><b id="bordyur">-</b></div>
+      <div class="qator"><span>Safar vaqti</span><b id="vaqt">-</b></div>
+      <div class="qator"><span>Svetofor</span><b id="svetofor">-</b></div>
+      <div class="qator"><span>To'qnashuv</span><b id="toqnashuv">0</b></div>
+    </div>
+    <div class="karta" id="sorov">
+      <h2 id="sorovSarlavha"></h2>
+      <div id="sorovMatn" class="izoh"></div>
+      <div class="tugmalar" id="sorovTugmalar"></div>
+    </div>
+    <div class="karta">
+      <button class="tugma qizil" id="toxtat">FAVQULODDA TO'XTATISH (Probel)</button>
+      <div class="tugmalar">
+        <button class="tugma" id="qoldaTugma">Boshqaruvni olish (M)</button>
+        <button class="tugma" id="avtonomTugma">Avtonomga qaytarish (Enter)</button>
+      </div>
+      <div class="boshqaruv">
+        <span></span><button class="tugma" data-amal="tezlik" data-q="0.5" title="W / yuqori">Tezroq ▲</button><span></span>
+        <button class="tugma" data-amal="yon" data-q="0.25" title="A / chap">◀ Chapga</button>
+        <button class="tugma" data-amal="tezlik" data-q="-10" title="X">To'xta</button>
+        <button class="tugma" data-amal="yon" data-q="-0.25" title="D / o'ng">O'ngga ▶</button>
+        <span></span><button class="tugma" data-amal="tezlik" data-q="-0.5" title="S / past">Sekinroq ▼</button><span></span>
+      </div>
+      <div class="izoh" id="qoldaIzoh" style="margin-top:6px">Qo'lda: tezlik va bordyurdan masofani berasiz, rul va tormozni skuter o'zi bajaradi. Ultratovush himoyasi doim yoqiq.</div>
+    </div>
+    <div class="karta"><canvas id="xarita"></canvas></div>
+    <div class="karta"><div class="izoh" style="margin-bottom:4px">Hodisalar</div><div id="jurnal"></div></div>
+  </div>
+</main>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let safar = null, h = null, oxirgiJurnal = 0, oxirgiSorov = "", kutilmoqda = false;
+
+async function post(amal, qiymat) {
+  try {
+    await fetch("/buyruq", {method: "POST", headers: {"Content-Type": "application/json"},
+                            body: JSON.stringify({amal, qiymat})});
+  } catch (e) { /* keyingi so'rovda aloqa holati ko'rinadi */ }
+}
+
+async function safarYukla() {
+  const r = await (await fetch("/safar")).json();
+  if (!$("manzil").options.length) {
+    r.manzillar.forEach((n, i) => $("manzil").add(new Option(`${i + 1}. ${n}`, i + 1)));
+  }
+  safar = r.safar;
+  if (safar) {
+    $("safarNomi").textContent = (safar.qaytish ? `${safar.nomi} → ombor` : `ombor → ${safar.nomi}`) +
+      ` · ${(safar.uzunlik / 1000).toFixed(1)} km · ${safar.otishlar.length} chorraha`;
+    $("manzil").value = safar.manzil;
+  }
+}
+
+function beep(chastota) {
+  try {
+    const a = new (window.AudioContext || window.webkitAudioContext)();
+    const o = a.createOscillator(), g = a.createGain();
+    o.frequency.value = chastota; o.connect(g); g.connect(a.destination);
+    g.gain.setValueAtTime(0.15, a.currentTime); g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + 0.4);
+    o.start(); o.stop(a.currentTime + 0.4);
+  } catch (e) {}
+}
+
+async function yangila() {
+  if (kutilmoqda) return;
+  kutilmoqda = true;
+  const t0 = performance.now();
+  try {
+    h = await (await fetch("/holat")).json();
+    $("aloqa").textContent = `aloqa: ${Math.round(performance.now() - t0)} ms`;
+    if (!safar || safar.raqam !== h.safar) await safarYukla();
+    paneliYangila();
+  } catch (e) {
+    $("aloqa").textContent = "aloqa: YO'Q";
+  } finally { kutilmoqda = false; }
+}
+
+function vaqtMatn(t) {
+  const m = Math.floor(t / 60), s = Math.floor(t % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function paneliYangila() {
+  if (h.t === undefined) return;
+  $("tezlik").textContent = (h.v * 3.6).toFixed(1);
+  $("holat").textContent = h.tugadi ? (h.yetib_keldi ? "Manzilga yetib keldi" : "Safar tugadi") : h.holat_nomi;
+  $("holat").style.color = h.toxtat || h.holat === "favqulodda" ? "var(--qizil)" :
+                           (h.holat === "operator_kutish" ? "var(--sariq)" : "");
+  $("masofa").textContent = `${(h.s / 1000).toFixed(2)} / ${(safar.uzunlik / 1000).toFixed(2)} km`;
+  $("bordyur").textContent = `${h.d.toFixed(2)} m` + (h.qolda ? ` (buyruq ${h.qd.toFixed(2)} m, ${(h.qv * 3.6).toFixed(0)} km/soat)` : "");
+  $("vaqt").textContent = vaqtMatn(h.t);
+  $("svetofor").textContent = h.svetofor ? `${h.svetofor[0] ? "yashil" : "qizil"}, ${h.svetofor[1].toFixed(0)} s` :
+                              (h.otish ? "yo'q (svetoforsiz chorraha)" : "-");
+  $("toqnashuv").textContent = h.toqnashuv;
+  $("toqnashuv").style.color = h.toqnashuv ? "var(--qizil)" : "";
+  $("rejimBelgi").textContent = h.qolda ? "QO'LDA" : "AVTONOM";
+  $("rejimBelgi").className = "belgi " + (h.qolda ? "qolda" : "avto");
+  $("toxtat").textContent = h.toxtat ? "Davom ettirish (Probel)" : "FAVQULODDA TO'XTATISH (Probel)";
+  $("toxtat").className = "tugma " + (h.toxtat ? "yashil" : "qizil");
+  $("pauza").textContent = h.pauza ? "Davom" : "Pauza";
+  $("qoldaTugma").disabled = h.qolda;
+  $("avtonomTugma").disabled = !h.qolda && !h.sorov_yordam;
+  document.querySelectorAll(".boshqaruv .tugma").forEach(b => b.disabled = !h.qolda);
+  if (String(h.vaqt_tezligi) !== $("vaqtTezligi").value && document.activeElement !== $("vaqtTezligi"))
+    $("vaqtTezligi").value = String(h.vaqt_tezligi);
+
+  // So'rov kartasi
+  const sv = $("sorov");
+  let kalit = "";
+  if (h.sorov_yordam) {
+    kalit = "y" + h.sorov_yordam.t;
+    sv.className = "karta yordam";
+    $("sorovSarlavha").textContent = "YORDAM: skuter qolib ketdi";
+    $("sorovMatn").textContent = `Sabab: ${h.holat_nomi}. ${vaqtMatn(h.t - h.sorov_yordam.t)} oldin. ` +
+      "Boshqaruvni olib to'siqni aylanib o'ting yoki avtonom davom ettiring.";
+    if (h.sorov_otish) {
+      $("sorovSarlavha").textContent = "YORDAM: chorrahada ruxsat kutib qoldi";
+      $("sorovMatn").textContent = `${vaqtMatn(h.t - h.sorov_otish.t)} dan beri kutmoqda. ${h.sorov_otish.polosalar} polosali ` +
+        `${h.sorov_otish.svetofor ? "svetoforli" : "svetoforsiz"} yo'l. Ruxsat bering, rad eting yoki boshqaruvni oling.`;
+      tugmalar([["Ruxsat (Y)", "tasdiq", "yashil"], ["Rad (N)", "rad", "qizil"], ["Boshqaruvni olish (M)", "qolda", ""]]);
+    } else {
+      tugmalar([["Boshqaruvni olish (M)", "qolda", "yashil"], ["Avtonom davom (Enter)", "avtonom", ""]]);
+    }
+  } else if (h.sorov_otish) {
+    kalit = "o" + h.sorov_otish.t;
+    sv.className = "karta otish";
+    $("sorovSarlavha").textContent = "Chorrahani kesib o'tishga ruxsat so'rayapti";
+    $("sorovMatn").textContent = `${h.sorov_otish.polosalar} polosali, ${h.sorov_otish.svetofor ? "svetoforli" : "svetoforsiz"} ` +
+      `yo'l, ${h.sorov_otish.kenglik} m. Kutmoqda: ${(h.t - h.sorov_otish.t).toFixed(0)} s. ` +
+      "Ikkala tomonga qarang: ruxsatdan keyin ham skuter mashinalarni o'zi tekshiradi.";
+    tugmalar([["Ruxsat (Y)", "tasdiq", "yashil"], ["Rad (N)", "rad", "qizil"]]);
+  } else {
+    sv.className = "karta";
+  }
+  if (kalit && kalit !== oxirgiSorov) beep(kalit[0] === "y" ? 440 : 880);
+  oxirgiSorov = kalit;
+
+  const j = $("jurnal");
+  for (const e of h.jurnal) {
+    if (e.n <= oxirgiJurnal) continue;
+    oxirgiJurnal = e.n;
+    const d = document.createElement("div");
+    d.textContent = `${e.vaqt} ${e.t !== null ? "[" + vaqtMatn(e.t) + "] " : ""}${e.matn}`;
+    if (/YORDAM|FAVQULODDA/.test(e.matn)) d.style.color = "var(--qizil)";
+    j.prepend(d);
+  }
+}
+
+function tugmalar(royxat) {
+  const q = $("sorovTugmalar");
+  const kalit = royxat.map(r => r[1]).join();
+  if (q.dataset.k === kalit) return;
+  q.dataset.k = kalit;
+  q.innerHTML = "";
+  for (const [matn, amal, sinf] of royxat) {
+    const b = document.createElement("button");
+    b.className = "tugma " + sinf; b.textContent = matn;
+    b.onclick = () => post(amal);
+    q.appendChild(b);
+  }
+}
+
+// ---------- Yuqoridan ko'rinish (skuter yo'nalishi doim tepaga) ----------
+const cv = $("korinish"), ctx = cv.getContext("2d");
+const MASSHTAB = 7;  // piksel / metr (devicePixelRatio siz)
+
+function nuqta(p, d) { return [p[1] - d * Math.sin(p[3]), p[2] + d * Math.cos(p[3])]; }
+
+function chiz() {
+  requestAnimationFrame(chiz);
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, H = cv.clientHeight;
+  if (cv.width !== W * dpr || cv.height !== H * dpr) { cv.width = W * dpr; cv.height = H * dpr; }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = "#2a2f26"; ctx.fillRect(0, 0, W, H);
+  if (!safar || !h || !h.skuter) {
+    ctx.fillStyle = "#8b98a8"; ctx.font = "16px system-ui"; ctx.fillText("Simulyator kutilmoqda...", 20, 30);
+    return;
+  }
+  const [sx, sy, , yonalish] = h.skuter;
+  ctx.save();
+  ctx.translate(W / 2, H * 0.68);
+  ctx.rotate(-Math.PI / 2 + yonalish);
+  ctx.scale(MASSHTAB, -MASSHTAB);
+  ctx.translate(-sx, -sy);
+
+  const oraliq = safar.yol.filter(p => p[0] > h.s - 45 && p[0] < h.s + 80);
+  // Kesib o'tiladigan ko'chalar (marshrutga ko'ndalang)
+  for (const [b0, b1, svet, , p0, p1] of safar.otishlar) {
+    if (b1 < h.s - 45 || b0 > h.s + 80) continue;
+    ctx.fillStyle = "#4a4f57";
+    kopburchak([nuqta(p0, -75), nuqta(p1, -75), nuqta(p1, 75), nuqta(p0, 75)]);
+    if (h.otish_sorovi !== null && Math.abs(h.otish_sorovi - b0) < 0.01) {
+      ctx.strokeStyle = "#f2c14e"; ctx.lineWidth = 0.35;
+      ctx.beginPath(); [nuqta(p0, -8), nuqta(p1, -8), nuqta(p1, 18), nuqta(p0, 18)].forEach((q, i) => i ? ctx.lineTo(...q) : ctx.moveTo(...q));
+      ctx.closePath(); ctx.stroke();
+    }
+    if (svet) {
+      const q = nuqta(p0, -1.2);
+      ctx.fillStyle = h.svetofor && Math.abs((h.otish || [])[0] - b0) < 0.01 ? (h.svetofor[0] ? "#3fb950" : "#e5484d") : "#999";
+      ctx.beginPath(); ctx.arc(q[0], q[1], 0.6, 0, 7); ctx.fill();
+    }
+  }
+  // Trotuar, yo'l, velo yo'lak, parkovka, polosa chiziqlari
+  for (let i = 1; i < oraliq.length; i++) {
+    const a = oraliq[i - 1], b = oraliq[i];
+    if (a[4] === 2) continue;
+    const W_ = a[5] + a[6] + a[7] * a[8];
+    ctx.fillStyle = "#6b6e72"; kopburchak([nuqta(a, -3), nuqta(b, -3), nuqta(b, -0.15), nuqta(a, -0.15)]);
+    ctx.fillStyle = "#3d4249"; kopburchak([nuqta(a, 0), nuqta(b, 0), nuqta(b, W_ + 3.5), nuqta(a, W_ + 3.5)]);
+    if (a[5] > 0) { ctx.fillStyle = "#34383e"; kopburchak([nuqta(a, 0), nuqta(b, 0), nuqta(b, a[5]), nuqta(a, a[5])]); }
+    if (a[6] > 0) { ctx.fillStyle = "#2f5a3a"; kopburchak([nuqta(a, a[5]), nuqta(b, a[5]), nuqta(b, a[5] + a[6]), nuqta(a, a[5] + a[6])]); }
+  }
+  ctx.lineWidth = 0.15;
+  for (let i = 1; i < oraliq.length; i++) {
+    const a = oraliq[i - 1], b = oraliq[i];
+    if (a[4] === 2) continue;
+    const ch = (d, rang, uzuk) => {
+      if (uzuk && Math.floor(a[0] / 4) % 2) return;
+      ctx.strokeStyle = rang; ctx.beginPath(); ctx.moveTo(...nuqta(a, d)); ctx.lineTo(...nuqta(b, d)); ctx.stroke();
+    };
+    ch(0, "#c9c9c9", false);
+    for (let p = 1; p < a[8]; p++) ch(a[5] + a[6] + p * a[7], "#e8e8e8", true);
+    ch(a[5] + a[6] + a[8] * a[7], "#f2c14e", false);  // qarama-qarshi yo'nalish chizig'i
+  }
+  // Rejalashtirilgan yo'l (bordyurdan 0,8 m)
+  ctx.strokeStyle = "rgba(76,154,255,0.35)"; ctx.lineWidth = 0.25; ctx.setLineDash([0.6, 0.6]);
+  ctx.beginPath(); oraliq.filter(p => p[0] > h.s).forEach((p, i) => { const q = nuqta(p, h.qolda ? h.qd : 0.8); i ? ctx.lineTo(...q) : ctx.moveTo(...q); });
+  ctx.stroke(); ctx.setLineDash([]);
+
+  const ranglar = {mashina: "#c8ccd2", avtobus: "#e0a94b", toxtagan: "#7d8590", velosiped: "#57c7a8", tosiq: "#e5734d"};
+  for (const [turi, x, y, a, l, w] of h.transport) {
+    ctx.fillStyle = ranglar[turi] || "#ccc";
+    tortburchak(x, y, a, l, w);
+    if (turi === "mashina" || turi === "avtobus") { ctx.fillStyle = "#222"; tortburchak(x + Math.cos(a) * l * 0.15, y + Math.sin(a) * l * 0.15, a, l * 0.25, w * 0.8); }
+  }
+  ctx.fillStyle = "#c8ccd2";
+  for (const [x, y, a] of h.kesuvchi) tortburchak(x, y, a, 4.5, 1.8);
+  ctx.fillStyle = "#f778ba";
+  for (const [x, y] of h.odamlar) { ctx.beginPath(); ctx.arc(x, y, 0.3, 0, 7); ctx.fill(); }
+  // Skuter
+  const [x, y, a] = h.skuter;
+  ctx.fillStyle = h.toxtat ? "#e5484d" : (h.qolda ? "#f2c14e" : "#4c9aff");
+  tortburchak(x, y, a, 1.2, 0.6);
+  ctx.strokeStyle = "rgba(76,154,255,0.5)"; ctx.lineWidth = 0.08;
+  ctx.beginPath(); ctx.arc(x, y, 4, a - 0.35, a + 0.35); ctx.stroke();  // ultratovush
+  ctx.restore();
+
+  // Masshtab
+  ctx.fillStyle = "#e6edf3"; ctx.fillRect(16, H - 22, 10 * MASSHTAB, 3);
+  ctx.font = "12px system-ui"; ctx.fillText("10 m", 16, H - 28);
+  if (h.pauza) { ctx.font = "bold 20px system-ui"; ctx.fillText("PAUZA", W / 2 - 34, 30); }
+}
+
+function kopburchak(q) { ctx.beginPath(); q.forEach((p, i) => i ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.closePath(); ctx.fill(); }
+function tortburchak(x, y, a, l, w) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.fillRect(-l / 2, -w / 2, l, w); ctx.restore();
+}
+
+// ---------- Kichik xarita ----------
+const xv = $("xarita"), xc = xv.getContext("2d");
+function xaritaChiz() {
+  requestAnimationFrame(xaritaChiz);
+  if (!safar) return;
+  const dpr = window.devicePixelRatio || 1, W = xv.clientWidth, H = xv.clientHeight;
+  if (xv.width !== W * dpr || xv.height !== H * dpr) { xv.width = W * dpr; xv.height = H * dpr; }
+  const X = safar.xarita, k = Math.min(W / X.w, H / X.h);
+  const ox = (W - X.w * k) / 2, oy = (H - X.h * k) / 2;
+  const p = q => [ox + q[0] * k, H - oy - q[1] * k];
+  xc.setTransform(dpr, 0, 0, dpr, 0, 0);
+  xc.fillStyle = "#151a20"; xc.fillRect(0, 0, W, H);
+  xc.strokeStyle = "#3a4452"; xc.lineWidth = 1;
+  for (const y of X.kochalar) { xc.beginPath(); y.forEach((q, i) => i ? xc.lineTo(...p(q)) : xc.moveTo(...p(q))); xc.stroke(); }
+  xc.strokeStyle = "#4c9aff"; xc.lineWidth = 3;
+  xc.beginPath(); X.marshrut.forEach((q, i) => i ? xc.lineTo(...p(q)) : xc.moveTo(...p(q))); xc.stroke();
+  const m = X.marshrut;
+  xc.fillStyle = "#f2c14e"; xc.beginPath(); xc.arc(...p(safar.qaytish ? m[m.length - 1] : m[0]), 5, 0, 7); xc.fill();
+  xc.fillStyle = "#3fb950"; xc.beginPath(); xc.arc(...p(safar.qaytish ? m[0] : m[m.length - 1]), 5, 0, 7); xc.fill();
+  if (h && h.s !== undefined) {
+    // Joriy joy: xaritadagi marshrut chizig'i bo'ylab shu ulushda
+    let jami = 0; const uz = [];
+    for (let i = 1; i < m.length; i++) { const d = Math.hypot(m[i][0] - m[i - 1][0], m[i][1] - m[i - 1][1]); uz.push(d); jami += d; }
+    let kerak = Math.min(1, h.s / safar.uzunlik) * jami, i = 0;
+    while (i < uz.length - 1 && kerak > uz[i]) { kerak -= uz[i]; i++; }
+    const f = uz[i] ? kerak / uz[i] : 0;
+    const q = [m[i][0] + (m[i + 1][0] - m[i][0]) * f, m[i][1] + (m[i + 1][1] - m[i][1]) * f];
+    xc.fillStyle = "#fff"; xc.strokeStyle = "#4c9aff"; xc.lineWidth = 2;
+    xc.beginPath(); xc.arc(...p(q), 6, 0, 7); xc.fill(); xc.stroke();
+  }
+  xc.fillStyle = "#8b98a8"; xc.font = "11px system-ui";
+  xc.fillText("sariq: ombor, yashil: manzil · © OpenStreetMap", 6, H - 6);
+}
+
+// ---------- Boshqaruv ----------
+$("toxtat").onclick = () => post(h && h.toxtat ? "davom" : "toxtat");
+$("qoldaTugma").onclick = () => post("qolda");
+$("avtonomTugma").onclick = () => post("avtonom");
+$("pauza").onclick = () => post("pauza", !(h && h.pauza));
+$("vaqtTezligi").onchange = e => post("vaqt_tezligi", parseFloat(e.target.value));
+$("yangiSafar").onclick = () => fetch("/buyruq", {method: "POST", body: JSON.stringify(
+  {amal: "safar", manzil: parseInt($("manzil").value), qaytish: $("yonalish").value === "1"})});
+document.querySelectorAll(".boshqaruv .tugma").forEach(b => b.onclick = () => post(b.dataset.amal, parseFloat(b.dataset.q)));
+
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "SELECT") return;
+  const k = e.key.toLowerCase();
+  const tugma = {
+    " ": () => post(h && h.toxtat ? "davom" : "toxtat"),
+    "y": () => post("tasdiq"), "n": () => post("rad"),
+    "m": () => post("qolda"), "enter": () => post("avtonom"),
+    "w": () => post("tezlik", 0.5), "arrowup": () => post("tezlik", 0.5),
+    "s": () => post("tezlik", -0.5), "arrowdown": () => post("tezlik", -0.5),
+    "x": () => post("tezlik", -10),
+    "a": () => post("yon", 0.25), "arrowleft": () => post("yon", 0.25),
+    "d": () => post("yon", -0.25), "arrowright": () => post("yon", -0.25),
+    "p": () => post("pauza", !(h && h.pauza)),
+  }[k];
+  if (tugma) { e.preventDefault(); tugma(); }
+});
+
+setInterval(yangila, 100);
+yangila();
+chiz();
+xaritaChiz();
+</script>
+</body>
+</html>
