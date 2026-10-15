@@ -357,10 +357,10 @@ class Simulyator:
                            "kochalar": kochalar}}
 
 
-def server_yasa(sim: Simulyator, host="127.0.0.1", port=8765, parol=None):
-    """parol berilsa, har bir so'rov HTTP Basic bilan himoyalanadi (foydalanuvchi: operator)."""
+def server_yasa(sim: Simulyator, host="127.0.0.1", port=8765, parol=None, login="operator"):
+    """parol berilsa, har bir so'rov HTTP Basic bilan himoyalanadi (foydalanuvchi: login)."""
     panel = sim.panel
-    kalit = "Basic " + base64.b64encode(f"operator:{parol}".encode()).decode() if parol else None
+    kalit = "Basic " + base64.b64encode(f"{login}:{parol}".encode()).decode() if parol else None
 
     class Ishlovchi(BaseHTTPRequestHandler):
         def log_message(self, *a):
@@ -433,7 +433,7 @@ def main():
     sim = Simulyator(PanelOperator(a.tezlik), davomli=a.davomli)
     threading.Thread(target=sim.ishla, daemon=True).start()
     sim.boshla(a.manzil)
-    srv = server_yasa(sim, a.host, a.port, parol)
+    srv = server_yasa(sim, a.host, a.port, parol, os.environ.get("OPERATOR_LOGIN") or "operator")
     if os.environ.get("TELEGRAM_TOKEN"):
         from operator_bot import OperatorBot
         chatlar = {int(x) for x in os.environ.get("OPERATOR_CHATLAR", "").replace(",", " ").split()}

@@ -3,6 +3,8 @@
 #
 # Serverda root sifatida bitta buyruq:
 #   curl -fsSL https://raw.githubusercontent.com/Arab04/autopilot/claude/project-thread-gxkale/deploy/ornat.sh | bash
+# Login/parolni o'zgartirish:
+#   curl -fsSL .../deploy/ornat.sh | OPERATOR_LOGIN=admin OPERATOR_PAROL=yangi_parol bash
 # Telegram bot bilan (token @BotFather dan):
 #   curl -fsSL .../deploy/ornat.sh | TELEGRAM_TOKEN=123:ABC OPERATOR_CHATLAR=111,222 bash
 #
@@ -35,8 +37,9 @@ chown -R skuter: "$DIR"
 
 IP="$(curl -fsS -4 --max-time 5 https://ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')"
 if [ ! -f "$ENVF" ]; then
-  PAROL="$(python3 -c 'import secrets; print(secrets.token_urlsafe(12))')"
+  PAROL="${OPERATOR_PAROL:-$(python3 -c 'import secrets; print(secrets.token_urlsafe(12))')}"
   cat > "$ENVF" <<EOF
+OPERATOR_LOGIN=${OPERATOR_LOGIN:-operator}
 OPERATOR_PAROL=$PAROL
 TELEGRAM_TOKEN=${TELEGRAM_TOKEN:-}
 OPERATOR_CHATLAR=${OPERATOR_CHATLAR:-}
@@ -44,7 +47,7 @@ PANEL_URL=http://$IP:$PORT
 EOF
 else
   # Berilgan qiymatlar bilan yangilash (berilmaganlari o'zgarmaydi)
-  for k in TELEGRAM_TOKEN OPERATOR_CHATLAR; do
+  for k in OPERATOR_LOGIN OPERATOR_PAROL TELEGRAM_TOKEN OPERATOR_CHATLAR; do
     v="${!k:-}"
     if [ -n "$v" ]; then
       grep -q "^$k=" "$ENVF" && sed -i "s|^$k=.*|$k=$v|" "$ENVF" || echo "$k=$v" >> "$ENVF"
@@ -87,6 +90,7 @@ sleep 3
 systemctl --no-pager --lines=5 status skuter-operator || true
 echo
 echo "Operator paneli: http://$IP:$PORT"
-echo "Login: operator   Parol: $(grep '^OPERATOR_PAROL=' "$ENVF" | cut -d= -f2-)"
+LOGIN="$(grep '^OPERATOR_LOGIN=' "$ENVF" | cut -d= -f2-)"
+echo "Login: ${LOGIN:-operator}   Parol: $(grep '^OPERATOR_PAROL=' "$ENVF" | cut -d= -f2-)"
 grep -q '^TELEGRAM_TOKEN=.\+' "$ENVF" && echo "Telegram bot yoqilgan. Operatorlar: $(grep '^OPERATOR_CHATLAR=' "$ENVF" | cut -d= -f2-)" \
   || echo "Telegram bot o'chiq: TELEGRAM_TOKEN=... bilan qayta ishga tushiring"
