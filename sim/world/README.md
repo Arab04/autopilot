@@ -295,7 +295,24 @@ Sinovlar (`python3 operator_sinovlar.py`, CI da ham): dastur operator rolini o'y
 bermaydi, yordam so'rovida boshqaruvni olib chorrahadan o'tkazadi, 6. to'xtagan mashinaga qarab
 20 km/soatda boshqaradi (skuter to'xtaydi), 7. HTTP server.
 
-Cheklovlar: panel parolsiz va faqat shu kompyuterda ochiladi (`--host 0.0.0.0` faqat ishonchli tarmoqda);
+Cheklovlar: panel HTTPS siz (IP manzil, domen yo'q), parol HTTP Basic bilan;
 video o'rniga simulyatordan olingan sxema ko'rsatiladi; aloqa kechikishi va uzilishi hali modellashtirilmagan.
 Haqiqiy skuterda shu interfeys (so'rov, ruxsat, qo'lda buyruq, to'xtatish) mobil aloqa orqali ishlaydi.
+
+## Serverga joylash va Telegram bot (2026-10-15)
+
+Serverda (Ubuntu/Debian, root) bitta buyruq: kodni `/opt/autopilot` ga oladi, `skuter-operator` systemd
+xizmatini yoqadi (`--davomli`: safarlar ketma-ket, to'xtovsiz), tasodifiy parol yaratadi va manzilni chiqaradi.
+
+    curl -fsSL https://raw.githubusercontent.com/Arab04/autopilot/claude/project-thread-gxkale/deploy/ornat.sh | bash
+    # Telegram bot bilan:
+    curl -fsSL .../deploy/ornat.sh | TELEGRAM_TOKEN=123:ABC OPERATOR_CHATLAR=111,222 bash
+
+Panelga kirish: login `operator`, parol `/etc/skuter-operator.env` da. Tarmoqqa ochilganda parolsiz ishlamaydi.
+
+Telegram bot (`operator_bot.py`): skuter chorrahada ruxsat so'rasa yoki qolib ketsa, ro'yxatdagi
+operatorlarga xabar yuboradi ([Ruxsat] [Rad] yoki [Avtonom davom] [To'xtatish] tugmalari, "Panelni ochish").
+Birinchi javob ishlaydi, qolganlarda tugmalar olib tashlanadi; eskirgan so'rovga bosilgan tugma hech narsa
+qilmaydi; ro'yxatda yo'q odam boshqara olmaydi. Buyruqlar: `/start` (chat raqamini aytadi), `/holat`,
+`/toxtat`, `/davom`.
 

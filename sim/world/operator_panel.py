@@ -17,7 +17,11 @@ uchun --host 0.0.0.0 (parolsiz, faqat ishonchli tarmoqda).
 """
 
 import argparse
+import base64
 import bisect
+import hmac
+import os
+import sys
 import json
 import math
 import random
@@ -82,6 +86,7 @@ class PanelOperator(Operator):
         self.surat = None
         self.jurnal = deque(maxlen=200)
         self.jurnal_n = 0
+        self.tinglovchilar = []    # f(turi, malumot, t): so'rovlar haqida xabar (masalan Telegram bot)
         self._yangi_safar_tozala()
 
     def _yangi_safar_tozala(self):
@@ -122,6 +127,11 @@ class PanelOperator(Operator):
             self.yoz("Skuter o'tmadi: o'zi yaqinlashayotgan mashina ko'rdi, bo'sh joy bo'lganda yana so'raydi", t)
         elif yopilgan:
             self.yoz("Yordam so'rovi yopildi" if malumot.get("sorov") == "yordam" else "Chorraha so'rovi yopildi", t)
+        for f in self.tinglovchilar:
+            try:
+                f(turi, malumot, t)
+            except Exception as e:  # bot xatosi simulyatorni to'xtatmasin
+                self.yoz(f"Xabar yuborilmadi: {e}", t)
 
     def otish_javobi(self, t):
         with self.lock:
@@ -257,8 +267,9 @@ def holat_nomi(h):
 class Simulyator:
     """Safarlarni navbat bilan yurgizadi (alohida oqimda)."""
 
-    def __init__(self, panel: PanelOperator):
+    def __init__(self, panel: PanelOperator, davomli=False):
         self.panel = panel
+        self.davomli = davomli  # serverda: safar tugasa, keyingisi o'zi boshlanadi
         self.xarita = Xarita.osm_dan(str(CHIRCHIQ_OSM))
         self.c = YolSozlamalari()
         self.navbat = deque()
@@ -277,7 +288,13 @@ class Simulyator:
             while self.navbat:
                 manzil, qaytish, urug = self.navbat.pop()
                 self.navbat.clear()
-                self._safar(manzil, qaytish, urug)
+                tugadi = self._safar(manzil, qaytish, urug)
+                if self.davomli and tugadi and not self.navbat:
+                    # Ombordan manzilga, keyin omborga qaytish; keyin keyingi manzil
+                    keyingi = (manzil, True) if not qaytish else (manzil % len(self.manzillar) + 1, False)
+                    time.sleep(10)
+                    if not self.navbat:
+                        self.navbat.append((*keyingi, random.randrange(10 ** 6)))
 
     def _safar(self, k, qaytish, urug):
         ombor = CHIRCHIQ_OMBOR[1:]
@@ -299,9 +316,10 @@ class Simulyator:
             n = ishga_tushir(sc, self.c, operator=p)
         except SafarBekor:
             p.yoz("Safar bekor qilindi")
-            return
+            return False
         p.yoz(f"Safar tugadi: {'yetib keldi' if n.yetib_keldi else 'yetmadi'}, {n.vaqt / 60:.1f} daqiqa, "
               f"to'qnashuv {n.mashina_toq + n.odam_toq + n.velo_toq + n.tosiq_toq + n.kesuvchi_toq}")
+        return True
 
     def _safar_json(self, xm, k, qaytish, raqam):
         m = xm.marshrut
@@ -339,8 +357,10 @@ class Simulyator:
                            "kochalar": kochalar}}
 
 
-def server_yasa(sim: Simulyator, host="127.0.0.1", port=8765):
+def server_yasa(sim: Simulyator, host="127.0.0.1", port=8765, parol=None):
+    """parol berilsa, har bir so'rov HTTP Basic bilan himoyalanadi (foydalanuvchi: operator)."""
     panel = sim.panel
+    kalit = "Basic " + base64.b64encode(f"operator:{parol}".encode()).decode() if parol else None
 
     class Ishlovchi(BaseHTTPRequestHandler):
         def log_message(self, *a):
@@ -355,7 +375,18 @@ def server_yasa(sim: Simulyator, host="127.0.0.1", port=8765):
             self.end_headers()
             self.wfile.write(data)
 
+        def _ruxsatmi(self):
+            if kalit is None or hmac.compare_digest(self.headers.get("Authorization", ""), kalit):
+                return True
+            self.send_response(401)
+            self.send_header("WWW-Authenticate", 'Basic realm="Skuter operator paneli", charset="UTF-8"')
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return False
+
         def do_GET(self):
+            if not self._ruxsatmi():
+                return
             if self.path in ("/", "/index.html"):
                 self._javob(200, HTML.read_bytes(), "text/html")
             elif self.path == "/holat":
@@ -368,6 +399,8 @@ def server_yasa(sim: Simulyator, host="127.0.0.1", port=8765):
                 self._javob(404, {"xato": "topilmadi"})
 
         def do_POST(self):
+            if not self._ruxsatmi():
+                return
             if self.path != "/buyruq":
                 return self._javob(404, {"xato": "topilmadi"})
             try:
@@ -392,11 +425,21 @@ def main():
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--manzil", type=int, default=1, help=f"1..{len(CHIRCHIQ_MANZILLAR)}")
     ap.add_argument("--tezlik", type=float, default=1.0, help="simulyator vaqti tezligi (1 = real vaqt)")
+    ap.add_argument("--davomli", action="store_true", help="safar tugasa keyingisini o'zi boshlaydi (server uchun)")
     a = ap.parse_args()
-    sim = Simulyator(PanelOperator(a.tezlik))
+    parol = os.environ.get("OPERATOR_PAROL") or None
+    if a.host not in ("127.0.0.1", "localhost", "::1") and not parol:
+        sys.exit("Tarmoqqa ochishdan oldin OPERATOR_PAROL muhit o'zgaruvchisida parol bering.")
+    sim = Simulyator(PanelOperator(a.tezlik), davomli=a.davomli)
     threading.Thread(target=sim.ishla, daemon=True).start()
     sim.boshla(a.manzil)
-    srv = server_yasa(sim, a.host, a.port)
+    srv = server_yasa(sim, a.host, a.port, parol)
+    if os.environ.get("TELEGRAM_TOKEN"):
+        from operator_bot import OperatorBot
+        chatlar = {int(x) for x in os.environ.get("OPERATOR_CHATLAR", "").replace(",", " ").split()}
+        bot = OperatorBot(os.environ["TELEGRAM_TOKEN"], sim.panel, chatlar, os.environ.get("PANEL_URL", ""))
+        threading.Thread(target=bot.ishla, daemon=True).start()
+        print(f"Telegram bot ishga tushdi, operatorlar: {sorted(chatlar) or 'hali yo`q (/start yuborib chat raqamini bilib oling)'}")
     print(f"Operator paneli: http://{'localhost' if a.host in ('127.0.0.1', '0.0.0.0') else a.host}:{srv.server_port}")
     try:
         srv.serve_forever()

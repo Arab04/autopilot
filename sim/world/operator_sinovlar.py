@@ -181,6 +181,59 @@ def sinov_http():
         srv.shutdown()
 
 
+def sinov_parol():
+    import base64
+    import operator_panel as opn
+    sim = opn.Simulyator(opn.PanelOperator())
+    srv = opn.server_yasa(sim, port=0, parol="sir123")
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{srv.server_port}/holat"
+    try:
+        kodlar = []
+        for kalit in (None, "operator:xato", "operator:sir123"):
+            so = urllib.request.Request(url)
+            if kalit:
+                so.add_header("Authorization", "Basic " + base64.b64encode(kalit.encode()).decode())
+            try:
+                kodlar.append(urllib.request.urlopen(so, timeout=5).status)
+            except urllib.error.HTTPError as e:
+                kodlar.append(e.code)
+        return kodlar == [401, 401, 200], f"javoblar {kodlar}"
+    finally:
+        srv.shutdown()
+
+
+def sinov_bot():
+    """Telegram bot (Telegram serverisiz): so'rov xabari tugmalar bilan faqat operatorlarga ketadi,
+    begona odam tugma bossa ham hech narsa bo'lmaydi, operator bossa ruxsat panelga yetadi."""
+    import operator_panel as opn
+    from operator_bot import OperatorBot
+    panel = opn.PanelOperator()
+    bot = OperatorBot("TOKEN", panel, {111}, "http://panel")
+    yuborilgan = []
+
+    def api(usul, kutish=15, **p):
+        yuborilgan.append((usul, p))
+        return {"message_id": len(yuborilgan)} if usul == "sendMessage" else True
+
+    bot.api = api
+    panel.sorov(5.0, "otish", {"s": 80, "otish": 91, "svetofor": False, "polosalar": 2, "kenglik": 7.0})
+    bot._hodisa("otish", {"polosalar": 2, "svetofor": False, "kenglik": 7.0}, 5.0)
+    xabar = yuborilgan[0]
+    tugmalar = [b["callback_data"] for q in xabar[1]["reply_markup"]["inline_keyboard"] for b in q if "callback_data" in b]
+    msg = {"chat": {"id": 222}, "message_id": 1}
+    bot._callback({"id": "a", "from": {"first_name": "Begona"}, "message": msg, "data": "tasdiq:5.0"})
+    begona = panel.javob
+    msg = {"chat": {"id": 111}, "message_id": 1}
+    bot._callback({"id": "b", "from": {"first_name": "Ali"}, "message": msg, "data": "tasdiq:5.0"})
+    eski = len(yuborilgan)
+    bot._callback({"id": "c", "from": {"first_name": "Ali"}, "message": msg, "data": "rad:5.0"})  # endi eskirgan
+    ok = (xabar[1]["chat_id"] == 111 and tugmalar == ["tasdiq:5.0", "rad:5.0"] and begona is None
+          and panel.javob is True and panel.sorov_otish is None
+          and any(u == "answerCallbackQuery" and "allaqachon" in p.get("text", "") for u, p in yuborilgan[eski:]))
+    return ok, f"{len(yuborilgan)} ta API chaqiruv"
+
+
 SINOVLAR = [
     ("1. Chorrahada operator ruxsat beradi", sinov_tasdiq),
     ("1b. Ko'ndalang oqim: ruxsatdan keyin ham skuter o'zi tekshiradi", sinov_oqim),
@@ -190,6 +243,8 @@ SINOVLAR = [
     ("5. Yordam so'rovi: operator boshqaruvni olib o'tkazadi", sinov_yordam),
     ("6. Qo'lda boshqarishda ham to'siq oldida to'xtaydi", sinov_qolda_tosiq),
     ("7. HTTP server: sahifa, holat, buyruqlar", sinov_http),
+    ("8. Server paroli (HTTP Basic)", sinov_parol),
+    ("9. Telegram bot: so'rov, operator javobi, begona odam", sinov_bot),
 ]
 
 
