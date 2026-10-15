@@ -30,6 +30,7 @@ fi
 id skuter >/dev/null 2>&1 || useradd --system --home "$DIR" --shell /usr/sbin/nologin skuter
 
 if [ -d "$DIR/.git" ]; then
+  git config --global --get-all safe.directory | grep -qx "$DIR" || git config --global --add safe.directory "$DIR"
   git -C "$DIR" fetch -q origin "$BRANCH"
   git -C "$DIR" checkout -q -B "$BRANCH" "origin/$BRANCH"
 else
