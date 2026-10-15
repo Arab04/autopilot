@@ -38,6 +38,8 @@ class OtishSozlamalari:
     svetofor_zaxira: float = 3.0       # yashil tugashiga kamida shuncha vaqt qolsin (s)
     chiziqdan: float = 0.6             # o'tish joyi boshidan oldin to'xtash (m)
     operator_qayta: float = 3.0        # operator rad etsa, qayta so'rashdan oldin kutish (s)
+    operator_kechikishi: float = 2.0   # operator javob bergunicha o'tadigan vaqt: shu vaqtdan keyin ham bo'sh joy
+                                       # qolsagina so'raymiz (aks holda ruxsat kelganda joy yopilgan bo'ladi)
     skuter_old: float = 0.65           # skuter markazidan old chetigacha (m)
     skuter_orqa: float = 0.65
     min_tezlik: float = 0.8            # yo'lni bundan sekin kesib o'tmaymiz (m/s)
@@ -174,6 +176,9 @@ class YolOtishBoshqaruvi:
             return 0.0, "bosh_joy_kutish"
         if self.rejim == "yarim" and not b.svetofor:
             if t - self.rad_vaqti < oc.operator_qayta:
+                return 0.0, "bosh_joy_kutish"
+            kelajak = [Mashina(m.polosa, m.x + m.vx * oc.operator_kechikishi, m.vx) for m in mashinalar]
+            if not self.bosh_joy_bor(b, s, v, kelajak):
                 return 0.0, "bosh_joy_kutish"
             self.sorov = b.boshi
             self.operator_sorovlari += 1

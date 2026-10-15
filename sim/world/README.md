@@ -249,3 +249,53 @@ abadiy tiqilib qolmaydi (chapdan aylanib o'tadi). 3-bosqich sinovi shu o'zgarish
   polosada) va eng yaqin svetoforni aniqlash. Oqim bir polosada 0,05 mashina/s (180/soat) dan kam bo'lsa skuter
   o'zi o'tadi; ko'p bo'lsa svetoforli joydan o'tish, operator tasdig'i yoki omborni g'arbiy tomonga ko'chirish.
 - Chirchiqdagi svetoforlarni joyida (yoki videodan) xaritaga qo'shish.
+
+
+# B bosqich: operator paneli (`operator_panel.py`, 2026-10-15)
+
+Operator virtual skuterni brauzerdan kuzatadi va masofadan boshqaradi. Simulyator Chirchiq xaritasida
+ombordan tanlangan manzilga real vaqtda (yoki 2x-10x tez) yuradi.
+
+    python3 operator_panel.py              # brauzerda http://localhost:8765
+    python3 operator_panel.py --manzil 3 --tezlik 2
+
+![Operator paneli](operator_panel.png)
+
+Panelda:
+- yuqoridan ko'rinish (skuter yo'nalishi doim tepaga): yo'l, polosalar, velosiped yo'lagi, mashinalar,
+  chorrahadagi ko'ndalang mashinalar, odamlar, so'ralayotgan chorraha sariq ramkada;
+- tezlik, holat (masalan "Operator ruxsatini kutmoqda"), bordyurdan masofa, svetofor, to'qnashuvlar soni;
+- kichik xarita: marshrut va skuter qayerda; hodisalar jurnali; yangi so'rov kelganda ovozli signal.
+
+Operator nima qila oladi (tugma yoki klaviatura):
+| Amal | Tugma |
+|---|---|
+| Chorrahadan o'tishga ruxsat / rad | Y / N |
+| Boshqaruvni olish (qo'lda) / avtonomga qaytarish | M / Enter |
+| Qo'lda: tezroq / sekinroq / to'xta | W yoki ↑ / S yoki ↓ / X |
+| Qo'lda: bordyurdan uzoqroq / yaqinroq | A yoki ← / D yoki → |
+| Favqulodda to'xtatish / davom | Probel |
+| Simulyator: pauza, tezligi, yangi safar | P, yuqoridagi menyular |
+
+Xavfsizlik qoidalari (skuter dasturida, operator ularni o'chira olmaydi):
+- Chorrahaga ruxsat berilsa ham skuter mashinalarni o'zi yana tekshiradi; mashina ko'rsa o'tmaydi va
+  jurnalga "Skuter o'tmadi" yoziladi.
+- Skuter ruxsatni faqat operator javob bergunicha (2 s) ham bo'sh joy qoladigan paytda so'raydi. Avval
+  zich oqimda so'rov ketidan so'rov kelardi (sinovda 59 ta, 53 tasi foydasiz); endi 9 ta.
+- Qo'lda boshqarishda operator faqat tezlik va bordyurdan masofani beradi, rulni skuter o'zi buradi.
+  Burilishdagi tezlik cheklovi, ultratovush va kamera himoyasi ishlaydi: buyurilgan yo'lakda oldinda
+  to'siq bo'lsa, 1,5 m oldin to'xtaydi (faqat ultratovush 4 m ko'radi, 20 km/soatda bu yetmaydi).
+- Yordam so'rovi endi safarni tugatmaydi: skuter joyida kutadi, operator boshqaruvni oladi yoki avtonom
+  davom ettiradi. Qo'lda chorrahaga kirib avtonomga qaytarilsa, skuter yo'l o'rtasida qayta ruxsat
+  so'ramaydi, o'tib ketadi.
+
+Sinovlar (`python3 operator_sinovlar.py`, CI da ham): dastur operator rolini o'ynaydi.
+1. ruxsat beradi, 1b. ko'ndalang oqimda doim ruxsat beradi (skuter o'zi tekshiradi, to'qnashuv yo'q),
+2. ikki marta rad etadi, 3. qo'lda boshqarib qaytaradi, 4. favqulodda to'xtatadi, 5. so'rovga javob
+bermaydi, yordam so'rovida boshqaruvni olib chorrahadan o'tkazadi, 6. to'xtagan mashinaga qarab
+20 km/soatda boshqaradi (skuter to'xtaydi), 7. HTTP server.
+
+Cheklovlar: panel parolsiz va faqat shu kompyuterda ochiladi (`--host 0.0.0.0` faqat ishonchli tarmoqda);
+video o'rniga simulyatordan olingan sxema ko'rsatiladi; aloqa kechikishi va uzilishi hali modellashtirilmagan.
+Haqiqiy skuterda shu interfeys (so'rov, ruxsat, qo'lda buyruq, to'xtatish) mobil aloqa orqali ishlaydi.
+

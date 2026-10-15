@@ -573,6 +573,26 @@ class YolAvtopilot:
     def xavfsizlik(self, buyruq, v, ultratovush, t):
         return self.xav.tekshir(buyruq, v, ultratovush, t - self.oxirgi_kamera)
 
+    def qolda_tezlik_chegarasi(self, s, d, d_maqsad, tormoz=None):
+        """Operator qo'lda boshqarganda kamera himoyasi: buyurilgan yo'lakda oldinda turgan (yoki sekin
+        ketayotgan) obyektgacha qulay to'xtay oladigan tezlik. Ultratovush faqat 4 m ko'radi, bu esa
+        katta tezlikda yetmaydi."""
+        c = self.c
+        tormoz = tormoz or c.tormoz
+        v_max = math.inf
+        for o in self.obyektlar:
+            bosh = o.s - o.uzunlik / 2 - (s + c.skuter_yarim_uzunlik)
+            if bosh < -0.2:
+                continue
+            # Buyurilgan yon holatda yo'lni to'sadimi; juda yaqin bo'lsa - hozirgi holatda ham
+            # (aylanib o'tish uchun yonga siljish oldinga yurishni talab qiladi, shuning uchun uzoqdagini emas)
+            dlar = (d_maqsad, d) if bosh < 2.5 else (d_maqsad,)
+            if not any(o.d - o.eni / 2 < x + c.skuter_r + 0.3 and o.d + o.eni / 2 > x - c.skuter_r - 0.3
+                       for x in dlar):
+                continue
+            v_max = min(v_max, max(0.0, o.vs) + math.sqrt(2 * tormoz * max(0.0, bosh - 1.5)))
+        return v_max
+
     def yordam_kerakmi(self, t, s):
         kutish = None
         if self.otish_holati in ("bosh_joy_kutish", "operator_kutish"):

@@ -1,0 +1,208 @@
+"""Operator paneli (B bosqich) sinovlari: brauzersiz, dastur operator rolini o'ynaydi.
+
+    python operator_sinovlar.py
+
+1-5: simulyatorning operator interfeysi (chorrahaga ruxsat, rad, qo'lda boshqarish, favqulodda to'xtatish,
+yordam so'rovida boshqaruvni olish). 6: qo'lda boshqarishda ham to'siqqa urilmaydi. 7: HTTP server.
+"""
+
+import json
+import sys
+import threading
+import time
+import urllib.request
+
+from yol_dunyo import Operator, Transport, YolSsenariy, ishga_tushir
+from yol_sinovlar import _kesuvchilar, _xavfsiz, _yol
+from autopilot.marshrut import Bolak, Marshrut
+
+
+def _chorraha(oqim_kesuvchi=True, **k):
+    m = Marshrut([_yol(80), Bolak("otish", 7.0, yollar=2), _yol(60)])
+    return YolSsenariy("chorraha", m, kesuvchi=_kesuvchilar(0, 2, 9.0) if oqim_kesuvchi else [], urug=3, **k)
+
+
+class Dastur(Operator):
+    """Ssenariy bo'yicha ishlaydigan operator. Har bir hodisani yozib boradi."""
+
+    def __init__(self, javoblar=(), kechikish=2.0):
+        self.javoblar = list(javoblar)  # navbatdagi so'rovlarga javoblar; tugasa - tasdiq
+        self.kechikish = kechikish
+        self.sorovlar, self.kutilmoqda = [], None
+        self.qolda, self.toxtat, self.yop = None, False, False
+        self.izlar = []
+
+    def sorov(self, t, turi, malumot):
+        self.sorovlar.append((t, turi))
+        if turi == "otish":
+            self.kutilmoqda = t
+        elif turi == "yopildi":
+            self.kutilmoqda = None
+
+    def otish_javobi(self, t):
+        if self.kutilmoqda is None or t < self.kutilmoqda + self.kechikish:
+            return None
+        self.kutilmoqda = None
+        return self.javoblar.pop(0) if self.javoblar else True
+
+    def boshqaruv(self, t):
+        return self.qolda
+
+    def yordam_yopildimi(self, t):
+        j, self.yop = self.yop, False
+        return j
+
+    def toxtatildimi(self, t):
+        return self.toxtat
+
+    def kuzat(self, t, holat):
+        self.izlar.append(holat)
+
+
+def sinov_tasdiq():
+    op = Dastur()
+    n = ishga_tushir(_chorraha(oqim_kesuvchi=False), operator=op)
+    otish = sum(1 for _, x in op.sorovlar if x == "otish")
+    return n.yetib_keldi and _xavfsiz(n) and otish == 1 and op.izlar[-1].get("tugadi"), f"so'rov {otish}"
+
+
+def sinov_oqim():
+    """Ko'ndalang oqim bor, operator har doim ruxsat beradi: skuter baribir o'zi tekshiradi."""
+    op = Dastur()
+    n = ishga_tushir(_chorraha(), operator=op)
+    otish = sum(1 for _, x in op.sorovlar if x == "otish")
+    rad = sum(1 for _, x in op.sorovlar if x == "skuter_rad")
+    return n.yetib_keldi and _xavfsiz(n), f"so'rov {otish}, skuter o'zi to'xtadi {rad}"
+
+
+def sinov_rad():
+    op = Dastur(javoblar=[False, False])
+    n = ishga_tushir(_chorraha(oqim_kesuvchi=False), operator=op)
+    otish = sum(1 for _, x in op.sorovlar if x == "otish")
+    # Rad etilganda o'tmaydi: kutib, yana so'raydi; uchinchi so'rovga ruxsat
+    return n.yetib_keldi and _xavfsiz(n) and otish == 3, f"so'rov {otish}"
+
+
+def sinov_qolda():
+    class Op(Dastur):
+        def boshqaruv(self, t):
+            return (3.0, 2.0) if 5.0 <= t < 20.0 else None
+
+    op = Op()
+    n = ishga_tushir(YolSsenariy("qolda", Marshrut([_yol(200)]), urug=4), operator=op)
+    h = next(x for x in op.izlar if x["t"] >= 19.5)
+    return (n.yetib_keldi and _xavfsiz(n) and abs(h["d"] - 2.0) < 0.15 and abs(h["v"] - 3.0) < 0.2 and h["qolda"]
+            and not op.izlar[-1]["qolda"]), f"20-s da d={h['d']:.2f} m, v={h['v']:.1f} m/s"
+
+
+def sinov_toxtatish():
+    class Op(Dastur):
+        def toxtatildimi(self, t):
+            return 5.0 <= t < 12.0
+
+    op = Op()
+    n = ishga_tushir(YolSsenariy("to'xtatish", Marshrut([_yol(200)]), urug=5), operator=op)
+    h = next(x for x in op.izlar if x["t"] >= 11.5)
+    return n.yetib_keldi and h["v"] == 0.0 and h["holat"] == "operator_toxtatdi", f"11,5 s da v={h['v']}"
+
+
+def sinov_yordam():
+    """Operator chorraha so'roviga javob bermaydi -> skuter yordam so'raydi (safar to'xtamaydi) ->
+    operator boshqaruvni olib chorrahadan o'tkazadi -> avtonom davom etib manzilga yetadi."""
+    class Op(Dastur):
+        def otish_javobi(self, t):
+            return None
+
+        def sorov(self, t, turi, malumot):
+            super().sorov(t, turi, malumot)
+            if turi == "yordam":
+                self.qolda = (2.0, 0.8)
+
+        def kuzat(self, t, holat):
+            super().kuzat(t, holat)
+            if self.qolda and holat["s"] > 95:
+                self.qolda = None
+
+    op = Op()
+    n = ishga_tushir(_chorraha(oqim_kesuvchi=False), operator=op)
+    yordam = sum(1 for _, x in op.sorovlar if x == "yordam")
+    return n.yordam and n.yetib_keldi and _xavfsiz(n) and yordam == 1, f"yordam {yordam}, {n.vaqt:.0f} s"
+
+
+def sinov_qolda_tosiq():
+    """Operator to'xtagan mashinaga qarab to'liq tezlikda boshqaradi: kamera himoyasi to'xtatadi."""
+    class Op(Dastur):
+        def boshqaruv(self, t):
+            return (5.5, 1.0)
+
+    op = Op()
+    sc = YolSsenariy("qo'lda to'siq", Marshrut([_yol(200)]),
+                     [Transport("toxtagan", 80, 1.0, uzunlik=4.5, eni=1.8, polosa=-1, id=1)], vaqt_chegarasi=40, urug=6)
+    n = ishga_tushir(sc, operator=op)
+    return _xavfsiz(n) and 70 < op.izlar[-1]["s"] < 78, f"to'xtadi s={op.izlar[-1]['s']:.1f} m"
+
+
+def sinov_http():
+    import operator_panel as opn
+    sim = opn.Simulyator(opn.PanelOperator(vaqt_tezligi=20.0))
+    threading.Thread(target=sim.ishla, daemon=True).start()
+    srv = opn.server_yasa(sim, port=0)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{srv.server_port}"
+
+    def ol(yol):
+        return json.load(urllib.request.urlopen(url + yol, timeout=5))
+
+    def yubor(**b):
+        r = urllib.request.Request(url + "/buyruq", json.dumps(b).encode(), {"Content-Type": "application/json"})
+        try:
+            return json.load(urllib.request.urlopen(r, timeout=5))
+        except urllib.error.HTTPError as e:
+            return json.load(e)
+
+    try:
+        sahifa = urllib.request.urlopen(url + "/", timeout=5).read().decode()
+        yubor(amal="safar", manzil=2)
+        for _ in range(100):
+            h = ol("/holat")
+            if h.get("t", 0) > 3 and h.get("v", 0) > 1:
+                break
+            time.sleep(0.1)
+        safar = ol("/safar")["safar"]
+        yubor(amal="toxtat")
+        time.sleep(1.0)
+        h2 = ol("/holat")
+        yubor(amal="davom")
+        xato = yubor(amal="yoq_buyruq")
+        ok = ("Skuter operator paneli" in sahifa and safar["manzil"] == 2 and len(safar["yol"]) > 100
+              and h2["v"] == 0.0 and h2["holat"] == "operator_toxtatdi" and "skuter" in h2 and xato.get("xato"))
+        return ok, f"safar {safar['uzunlik'] / 1000:.1f} km, to'xtatilganda v={h2['v']}"
+    finally:
+        srv.shutdown()
+
+
+SINOVLAR = [
+    ("1. Chorrahada operator ruxsat beradi", sinov_tasdiq),
+    ("1b. Ko'ndalang oqim: ruxsatdan keyin ham skuter o'zi tekshiradi", sinov_oqim),
+    ("2. Operator rad etadi: skuter kutib, qayta so'raydi", sinov_rad),
+    ("3. Qo'lda boshqarish va avtonomga qaytish", sinov_qolda),
+    ("4. Favqulodda to'xtatish", sinov_toxtatish),
+    ("5. Yordam so'rovi: operator boshqaruvni olib o'tkazadi", sinov_yordam),
+    ("6. Qo'lda boshqarishda ham to'siq oldida to'xtaydi", sinov_qolda_tosiq),
+    ("7. HTTP server: sahifa, holat, buyruqlar", sinov_http),
+]
+
+
+def main():
+    xatolar = []
+    for nomi, f in SINOVLAR:
+        ok, izoh = f()
+        print(f"{'OK ' if ok else 'XATO'}  {nomi} ({izoh})", flush=True)
+        if not ok:
+            xatolar.append(nomi)
+    print("\nO'tmagan sinovlar:", "; ".join(xatolar) if xatolar else "yo'q")
+    return 1 if xatolar else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
