@@ -5,8 +5,8 @@
 #   curl -fsSL https://raw.githubusercontent.com/Arab04/autopilot/claude/project-thread-gxkale/deploy/ornat.sh | bash
 # Login/parolni o'zgartirish:
 #   curl -fsSL .../deploy/ornat.sh | OPERATOR_LOGIN=admin OPERATOR_PAROL=yangi_parol bash
-# HTTPS (telefon kamerasi faqat HTTPS da ishlaydi) Caddy orqali avtomatik: <ip>.sslip.io domeni va
-# Let's Encrypt sertifikati. O'z domeningiz bo'lsa: DOMEN=panel.misol.uz; o'chirish: HTTPS=0.
+# HTTPS (telefon kamerasi faqat HTTPS da ishlaydi) avtomatik: <ip>.sslip.io domeni va Let's Encrypt
+# sertifikati; serverda nginx bo'lsa unga alohida sayt qo'shiladi, bo'lmasa Caddy o'rnatiladi. O'z domeningiz bo'lsa: DOMEN=panel.misol.uz; o'chirish: HTTPS=0.
 # Telegram bot bilan (token @BotFather dan):
 #   curl -fsSL .../deploy/ornat.sh | TELEGRAM_TOKEN=123:ABC OPERATOR_CHATLAR=111,222 bash
 #
@@ -83,21 +83,80 @@ EOF
 
 HTTPS="${HTTPS:-1}"
 DOMEN="${DOMEN:-${IP//./-}.sslip.io}"
-if [ "$HTTPS" = 1 ] && ! command -v caddy >/dev/null; then
-  { apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq caddy; } \
-    || { echo "DIQQAT: Caddy o'rnatilmadi, panel faqat http orqali ochiladi"; HTTPS=0; }
-fi
-if [ "$HTTPS" = 1 ]; then
-  # flush_interval -1: kamera oqimi (MJPEG) buferlanmasdan darhol o'tsin
-  cat > /etc/caddy/Caddyfile <<CADDY
+# Serverda boshqa saytlar bo'lishi mumkin: ularning sozlamalariga tegilmaydi, panel alohida sayt sifatida qo'shiladi.
+if [ "$HTTPS" = 1 ] && systemctl is-active -q nginx; then
+  # nginx allaqachon 80/443 da: alohida server bloki + certbot (faqat shu domen uchun)
+  if [ -d /etc/nginx/sites-enabled ]; then NGF=/etc/nginx/sites-available/skuter-operator; else NGF=/etc/nginx/conf.d/skuter-operator.conf; fi
+  if [ ! -f "$NGF" ]; then
+    cat > "$NGF" <<NGINX
+# skuter-operator (deploy/ornat.sh)
+server {
+    listen 80;
+    listen [::]:80;
+    server_name $DOMEN;
+    client_max_body_size 3m;
+    location / {
+        proxy_pass http://127.0.0.1:$PORT;
+        proxy_http_version 1.1;
+        proxy_buffering off;          # kamera oqimi (MJPEG) darhol o'tsin
+        proxy_read_timeout 1h;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+}
+NGINX
+    [ -d /etc/nginx/sites-enabled ] && ln -sf "$NGF" /etc/nginx/sites-enabled/skuter-operator
+  fi
+  if nginx -t 2>/dev/null; then
+    systemctl reload nginx
+    if ! command -v certbot >/dev/null; then
+      DEBIAN_FRONTEND=noninteractive apt-get install -y -qq certbot python3-certbot-nginx || true
+    fi
+    certbot --nginx -d "$DOMEN" --non-interactive --agree-tos --register-unsafely-without-email --redirect \
+      --keep-until-expiring -q || { echo "DIQQAT: sertifikat olinmadi (certbot), panel faqat http orqali"; HTTPS=0; }
+  else
+    echo "DIQQAT: nginx sozlamasi xato bo'ldi, panel bloki olib tashlandi (boshqa saytlarga tegilmadi)"
+    rm -f /etc/nginx/sites-enabled/skuter-operator "$NGF"
+    HTTPS=0
+  fi
+  # Avvalgi versiya o'rnatgan, lekin port band bo'lgani uchun ishlamayotgan Caddy ni o'chirish
+  if command -v caddy >/dev/null && ! systemctl is-active -q caddy; then systemctl disable -q caddy 2>/dev/null || true; fi
+elif [ "$HTTPS" = 1 ] && ss -tln | grep -qE ':(80|443) ' && ! systemctl is-active -q caddy; then
+  echo "DIQQAT: 80/443 portni boshqa dastur egallagan (nginx emas), HTTPS o'rnatilmadi: ss -tlnp | grep -E ':(80|443) '"
+  HTTPS=0
+elif [ "$HTTPS" = 1 ]; then
+  if ! command -v caddy >/dev/null; then
+    { apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq caddy; } \
+      || { echo "DIQQAT: Caddy o'rnatilmadi, panel faqat http orqali ochiladi"; HTTPS=0; }
+  fi
+  if [ "$HTTPS" = 1 ]; then
+    # Panel alohida faylda; Caddyfile ga faqat import qatori qo'shiladi (boshqa saytlar o'zgarmaydi).
+    # flush_interval -1: kamera oqimi (MJPEG) buferlanmasdan darhol o'tsin
+    cat > /etc/caddy/skuter-operator.caddy <<CADDY
 $DOMEN {
 	reverse_proxy 127.0.0.1:$PORT {
 		flush_interval -1
 	}
 }
 CADDY
-  systemctl enable -q caddy
-  systemctl restart caddy || echo "DIQQAT: Caddy ishga tushmadi (80/443 port band emasmi?): journalctl -u caddy"
+    CF=/etc/caddy/Caddyfile
+    if ! grep -q 'import /etc/caddy/skuter-operator.caddy' "$CF" 2>/dev/null; then
+      [ -f "$CF" ] && cp "$CF" "$CF.bak.$(date +%s)"
+      if [ -f "$CF" ] && grep -q '/usr/share/caddy' "$CF" && [ "$(grep -c '{' "$CF")" -le 3 ]; then
+        : > "$CF"  # paket bilan kelgan namuna fayl (":80 { root * /usr/share/caddy ... }")
+      fi
+      echo 'import /etc/caddy/skuter-operator.caddy' >> "$CF"
+    fi
+    if caddy validate --config "$CF" --adapter caddyfile >/dev/null 2>&1; then
+      systemctl enable -q caddy
+      systemctl reload-or-restart caddy || echo "DIQQAT: Caddy ishga tushmadi: journalctl -u caddy"
+    else
+      echo "DIQQAT: Caddyfile xato, o'zgartirilmadi: caddy validate --config $CF"
+      HTTPS=0
+    fi
+  fi
+fi
+if [ "$HTTPS" = 1 ]; then
   sed -i "s|^PANEL_URL=.*|PANEL_URL=https://$DOMEN|" "$ENVF"
 fi
 
