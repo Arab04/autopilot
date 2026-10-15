@@ -5,6 +5,8 @@
 #   curl -fsSL https://raw.githubusercontent.com/Arab04/autopilot/claude/project-thread-gxkale/deploy/ornat.sh | bash
 # Login/parolni o'zgartirish:
 #   curl -fsSL .../deploy/ornat.sh | OPERATOR_LOGIN=admin OPERATOR_PAROL=yangi_parol bash
+# HTTPS (telefon kamerasi faqat HTTPS da ishlaydi) Caddy orqali avtomatik: <ip>.sslip.io domeni va
+# Let's Encrypt sertifikati. O'z domeningiz bo'lsa: DOMEN=panel.misol.uz; o'chirish: HTTPS=0.
 # Telegram bot bilan (token @BotFather dan):
 #   curl -fsSL .../deploy/ornat.sh | TELEGRAM_TOKEN=123:ABC OPERATOR_CHATLAR=111,222 bash
 #
@@ -78,18 +80,44 @@ PrivateTmp=true
 WantedBy=multi-user.target
 EOF
 
+HTTPS="${HTTPS:-1}"
+DOMEN="${DOMEN:-${IP//./-}.sslip.io}"
+if [ "$HTTPS" = 1 ] && ! command -v caddy >/dev/null; then
+  { apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq caddy; } \
+    || { echo "DIQQAT: Caddy o'rnatilmadi, panel faqat http orqali ochiladi"; HTTPS=0; }
+fi
+if [ "$HTTPS" = 1 ]; then
+  # flush_interval -1: kamera oqimi (MJPEG) buferlanmasdan darhol o'tsin
+  cat > /etc/caddy/Caddyfile <<CADDY
+$DOMEN {
+	reverse_proxy 127.0.0.1:$PORT {
+		flush_interval -1
+	}
+}
+CADDY
+  systemctl enable -q caddy
+  systemctl restart caddy || echo "DIQQAT: Caddy ishga tushmadi (80/443 port band emasmi?): journalctl -u caddy"
+  sed -i "s|^PANEL_URL=.*|PANEL_URL=https://$DOMEN|" "$ENVF"
+fi
+
 systemctl daemon-reload
 systemctl enable -q skuter-operator
 systemctl restart skuter-operator
 
 if command -v ufw >/dev/null && ufw status | grep -q "Status: active"; then
   ufw allow "$PORT/tcp" >/dev/null
+  if [ "$HTTPS" = 1 ]; then ufw allow 80,443/tcp >/dev/null; fi
 fi
 
 sleep 3
 systemctl --no-pager --lines=5 status skuter-operator || true
 echo
-echo "Operator paneli: http://$IP:$PORT"
+if [ "$HTTPS" = 1 ]; then
+  echo "Operator paneli: https://$DOMEN   (yoki http://$IP:$PORT)"
+  echo "Telefon kamerasi: https://$DOMEN/kamera"
+else
+  echo "Operator paneli: http://$IP:$PORT"
+fi
 LOGIN="$(grep '^OPERATOR_LOGIN=' "$ENVF" | cut -d= -f2-)"
 echo "Login: ${LOGIN:-operator}   Parol: $(grep '^OPERATOR_PAROL=' "$ENVF" | cut -d= -f2-)"
 grep -q '^TELEGRAM_TOKEN=.\+' "$ENVF" && echo "Telegram bot yoqilgan. Operatorlar: $(grep '^OPERATOR_CHATLAR=' "$ENVF" | cut -d= -f2-)" \

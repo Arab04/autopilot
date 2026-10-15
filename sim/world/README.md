@@ -293,10 +293,10 @@ Sinovlar (`python3 operator_sinovlar.py`, CI da ham): dastur operator rolini o'y
 1. ruxsat beradi, 1b. ko'ndalang oqimda doim ruxsat beradi (skuter o'zi tekshiradi, to'qnashuv yo'q),
 2. ikki marta rad etadi, 3. qo'lda boshqarib qaytaradi, 4. favqulodda to'xtatadi, 5. so'rovga javob
 bermaydi, yordam so'rovida boshqaruvni olib chorrahadan o'tkazadi, 6. to'xtagan mashinaga qarab
-20 km/soatda boshqaradi (skuter to'xtaydi), 7. HTTP server.
+20 km/soatda boshqaradi (skuter to'xtaydi), 7. HTTP server, 8. parol, 9. Telegram bot, 10. sinov kamerasi.
 
-Cheklovlar: panel HTTPS siz (IP manzil, domen yo'q), parol HTTP Basic bilan;
-video o'rniga simulyatordan olingan sxema ko'rsatiladi; aloqa kechikishi va uzilishi hali modellashtirilmagan.
+Cheklovlar: parol HTTP Basic bilan; simulyator skuteri uchun video yo'q (sxema ko'rsatiladi, sinov kamerasi
+alohida, quyida); aloqa kechikishi va uzilishi simulyatorda hali modellashtirilmagan.
 Haqiqiy skuterda shu interfeys (so'rov, ruxsat, qo'lda buyruq, to'xtatish) mobil aloqa orqali ishlaydi.
 
 ## Serverga joylash va Telegram bot (2026-10-15)
@@ -316,3 +316,25 @@ Birinchi javob ishlaydi, qolganlarda tugmalar olib tashlanadi; eskirgan so'rovga
 qilmaydi; ro'yxatda yo'q odam boshqara olmaydi. Buyruqlar: `/start` (chat raqamini aytadi), `/holat`,
 `/toxtat`, `/davom`.
 
+
+## Sinov kamerasi: telefon skuter kamerasi o'rnida (2026-10-15)
+
+Skuter yig'ilguncha telefon kamerasi operator paneliga ulanadi: Chirchiqda 4G orqali video qancha
+kechikishini skutersiz o'lchash uchun.
+
+1. Telefonda `https://<server>/kamera` ni ochib, panel login/paroli bilan kiring, "Uzatishni boshlash".
+2. Operator panelida (o'ng ustun tepasida) video, kadr/s, trafik va taxminiy kechikish ko'rinadi.
+   Video bosilsa katta ochiladi.
+
+Qanday ishlaydi (`kamera.py`, `kamera.html`): telefon har kadrni JPEG qilib `POST /kamera/kadr` ga yuboradi
+va javobni kutadi (aloqa sekinlashsa kadrlar navbatga yig'ilmaydi, kamroq yuboriladi). Panel
+`GET /kamera/oqim` dan MJPEG oqimini oladi. Kechikish = telefon o'lchagan yuborish vaqtining yarmi + kadrning
+serverdagi yoshi. Har kadrga telefon soati yoziladi: operator ekrani va telefonni birga suratga olib, to'liq
+kechikishni ham tekshirsa bo'ladi.
+
+Brauzer kamerani faqat HTTPS sahifada beradi, shuning uchun `ornat.sh` Caddy o'rnatadi va
+`<ip>.sslip.io` domeniga Let's Encrypt sertifikati oladi (`DOMEN=...` bilan o'z domeningiz, `HTTPS=0` bilan
+o'chiriladi). Serverda 80 va 443 portlar ochiq bo'lishi kerak.
+
+Bu faqat sinov uchun: haqiqiy skuterda video Jetson'dan WebRTC (H.264) bilan uzatiladi, MJPEG trafigi ancha
+katta (640x480, 10 kadr/s taxminan 0,7 Mbit/s).
