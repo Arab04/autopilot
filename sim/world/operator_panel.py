@@ -34,8 +34,10 @@ from pathlib import Path
 from xarita_sinovlar import CHIRCHIQ_MANZILLAR, CHIRCHIQ_OMBOR, CHIRCHIQ_OSM, Xarita, _asosiy
 from yol_dunyo import Kocha, Operator, ishga_tushir, kocha_toldir
 from autopilot.yol import YolSozlamalari
+from kamera import MAX_KADR, Kamera
 
 HTML = Path(__file__).with_name("operator_panel.html")
+KAMERA_HTML = Path(__file__).with_name("kamera.html")
 QOLDA_MAX_TEZLIK = 20 / 3.6
 
 
@@ -357,10 +359,11 @@ class Simulyator:
                            "kochalar": kochalar}}
 
 
-def server_yasa(sim: Simulyator, host="127.0.0.1", port=8765, parol=None):
-    """parol berilsa, har bir so'rov HTTP Basic bilan himoyalanadi (foydalanuvchi: operator)."""
+def server_yasa(sim: Simulyator, host="127.0.0.1", port=8765, parol=None, login="operator"):
+    """parol berilsa, har bir so'rov HTTP Basic bilan himoyalanadi (foydalanuvchi: login)."""
     panel = sim.panel
-    kalit = "Basic " + base64.b64encode(f"operator:{parol}".encode()).decode() if parol else None
+    kamera = Kamera()
+    kalit = "Basic " + base64.b64encode(f"{login}:{parol}".encode()).decode() if parol else None
 
     class Ishlovchi(BaseHTTPRequestHandler):
         def log_message(self, *a):
@@ -395,12 +398,51 @@ def server_yasa(sim: Simulyator, host="127.0.0.1", port=8765, parol=None):
                 with panel.lock:
                     s = panel.safar
                 self._javob(200, {"safar": s, "manzillar": sim.manzillar})
+            elif self.path == "/kamera":
+                self._javob(200, KAMERA_HTML.read_bytes(), "text/html")
+            elif self.path == "/kamera/holat":
+                self._javob(200, kamera.holat())
+            elif self.path.startswith("/kamera/oqim"):
+                self._oqim()
             else:
                 self._javob(404, {"xato": "topilmadi"})
+
+        def _oqim(self):
+            """MJPEG: har yangi kadr multipart bo'lagi bo'lib ketadi; brauzer <img> da video kabi ko'rsatadi."""
+            self.send_response(200)
+            self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=kadr")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Accel-Buffering", "no")
+            self.end_headers()
+            raqam = -1
+            try:
+                while True:
+                    raqam, jpeg = kamera.kut(raqam)
+                    if jpeg is None:
+                        continue
+                    self.wfile.write(b"--kadr\r\nContent-Type: image/jpeg\r\nContent-Length: %d\r\n\r\n" % len(jpeg))
+                    self.wfile.write(jpeg + b"\r\n")
+                    self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError, TimeoutError):
+                pass
+
+        def _kadr_qabul(self):
+            n = int(self.headers.get("Content-Length", 0))
+            if not 0 < n <= MAX_KADR:
+                return self._javob(413, {"xato": f"kadr hajmi 1..{MAX_KADR} bayt bo'lishi kerak"})
+            try:
+                rtt = self.headers.get("X-Rtt")
+                raqam = kamera.qabul(self.rfile.read(n), float(rtt) if rtt else None,
+                                     self.headers.get("User-Agent", ""))
+            except ValueError as e:
+                return self._javob(400, {"xato": str(e)})
+            self._javob(200, {"ok": True, "raqam": raqam})
 
         def do_POST(self):
             if not self._ruxsatmi():
                 return
+            if self.path == "/kamera/kadr":
+                return self._kadr_qabul()
             if self.path != "/buyruq":
                 return self._javob(404, {"xato": "topilmadi"})
             try:
@@ -416,7 +458,9 @@ def server_yasa(sim: Simulyator, host="127.0.0.1", port=8765, parol=None):
                 xato = f"noto'g'ri so'rov: {e}"
             self._javob(400 if xato else 200, {"xato": xato} if xato else {"ok": True})
 
-    return ThreadingHTTPServer((host, port), Ishlovchi)
+    srv = ThreadingHTTPServer((host, port), Ishlovchi)
+    srv.kamera = kamera
+    return srv
 
 
 def main():
@@ -433,7 +477,7 @@ def main():
     sim = Simulyator(PanelOperator(a.tezlik), davomli=a.davomli)
     threading.Thread(target=sim.ishla, daemon=True).start()
     sim.boshla(a.manzil)
-    srv = server_yasa(sim, a.host, a.port, parol)
+    srv = server_yasa(sim, a.host, a.port, parol, os.environ.get("OPERATOR_LOGIN") or "operator")
     if os.environ.get("TELEGRAM_TOKEN"):
         from operator_bot import OperatorBot
         chatlar = {int(x) for x in os.environ.get("OPERATOR_CHATLAR", "").replace(",", " ").split()}

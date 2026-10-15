@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sinov kamerasi</title>
+<style>
+  :root { --fon:#11151b; --panel:#1b222c; --chiziq:#2c3644; --matn:#e6edf3; --xira:#8b98a8;
+          --qizil:#e5484d; --yashil:#3fb950; --sariq:#f2c14e; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--fon); color:var(--matn); font:15px/1.4 system-ui, sans-serif; padding:12px 16px; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  .izoh { color:var(--xira); font-size:13px; }
+  video { width:100%; max-height:55vh; background:#000; border-radius:8px; margin:10px 0; display:block; }
+  .qator { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0; }
+  select, button { background:var(--panel); color:var(--matn); border:1px solid var(--chiziq); border-radius:8px;
+          padding:10px 12px; font:inherit; }
+  #boshla { flex:1; font-weight:700; }
+  #boshla.yoniq { background:#5a1d20; border-color:var(--qizil); }
+  .korsatkich { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:8px; }
+  .korsatkich div { background:var(--panel); border:1px solid var(--chiziq); border-radius:8px; padding:8px; }
+  .korsatkich b { display:block; font-size:20px; font-variant-numeric:tabular-nums; }
+  #xabar { margin-top:10px; padding:10px; border-radius:8px; display:none; }
+  #xabar.xato { display:block; background:#2d1719; border:1px solid var(--qizil); }
+  #xabar.ok { display:block; background:#17301e; border:1px solid var(--yashil); }
+</style>
+</head>
+<body>
+<h1>Sinov kamerasi</h1>
+<div class="izoh">Telefon skuter kamerasi o'rnida: video serverga ketadi va operator panelida ko'rinadi.
+  Telefonni old oynaga yoki ko'krakka mahkamlang, ekran o'chmasin.</div>
+<video id="video" playsinline muted></video>
+<div class="qator">
+  <select id="olcham" aria-label="O'lcham">
+    <option value="640x480" selected>640×480</option><option value="1280x720">1280×720</option><option value="320x240">320×240</option>
+  </select>
+  <select id="fps" aria-label="Kadr tezligi">
+    <option value="5">5 kadr/s</option><option value="10" selected>10 kadr/s</option><option value="15">15 kadr/s</option>
+  </select>
+  <select id="sifat" aria-label="Sifat">
+    <option value="0.5">sifat: past</option><option value="0.65" selected>sifat: o'rta</option><option value="0.8">sifat: yuqori</option>
+  </select>
+</div>
+<div class="qator"><button id="boshla">Uzatishni boshlash</button></div>
+<div class="korsatkich">
+  <div><span class="izoh">Telefon → server</span><b id="rtt">-</b></div>
+  <div><span class="izoh">Kadr/s</span><b id="kfps">-</b></div>
+  <div><span class="izoh">Trafik</span><b id="trafik">-</b></div>
+</div>
+<div id="xabar"></div>
+<canvas id="kanva" hidden></canvas>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let oqim = null, ishlayapti = false, qulf = null, rtt = null, yuborildi = [];
+
+function xabar(matn, turi) { $("xabar").textContent = matn; $("xabar").className = turi || ""; }
+
+if (!window.isSecureContext) {
+  xabar("Brauzer kamerani faqat HTTPS sahifada beradi. Sahifani https:// bilan oching " +
+        "(o'rnatish skripti chiqargan https manzil).", "xato");
+}
+
+async function kameraOch() {
+  const [w, h] = $("olcham").value.split("x").map(Number);
+  oqim = await navigator.mediaDevices.getUserMedia({
+    video: {facingMode: {ideal: "environment"}, width: {ideal: w}, height: {ideal: h}}, audio: false});
+  $("video").srcObject = oqim;
+  await $("video").play();
+}
+
+function kadrOl() {
+  const v = $("video"), k = $("kanva");
+  k.width = v.videoWidth; k.height = v.videoHeight;
+  const c = k.getContext("2d");
+  c.drawImage(v, 0, 0);
+  // Vaqt tamg'asi: operator ekranini va telefon soatini birga suratga olib, to'liq kechikishni tekshirsa bo'ladi
+  const t = new Date(), matn = t.toLocaleTimeString("uz", {hour12: false}) + "." + String(t.getMilliseconds()).padStart(3, "0");
+  const o = Math.max(14, Math.round(k.height / 22));
+  c.font = `bold ${o}px ui-monospace, monospace`;
+  c.fillStyle = "rgba(0,0,0,.6)"; c.fillRect(6, 6, c.measureText(matn).width + 12, o + 10);
+  c.fillStyle = "#fff"; c.fillText(matn, 12, o + 8);
+  return new Promise(r => k.toBlob(r, "image/jpeg", parseFloat($("sifat").value)));
+}
+
+async function aylana() {
+  while (ishlayapti) {
+    const boshi = performance.now();
+    try {
+      const jpeg = await kadrOl();
+      const sarlavha = {"Content-Type": "image/jpeg"};
+      if (rtt !== null) sarlavha["X-Rtt"] = rtt.toFixed(0);
+      const javob = await fetch("/kamera/kadr", {method: "POST", body: jpeg, headers: sarlavha, cache: "no-store"});
+      if (!javob.ok) throw new Error(`server ${javob.status}`);
+      rtt = performance.now() - boshi;
+      yuborildi.push([performance.now(), jpeg.size]);
+      yuborildi = yuborildi.filter(([t]) => performance.now() - t < 3000);
+      $("rtt").textContent = `${Math.round(rtt / 2)} ms`;
+      if (yuborildi.length > 1) {
+        const dt = (yuborildi.at(-1)[0] - yuborildi[0][0]) / 1000;
+        $("kfps").textContent = ((yuborildi.length - 1) / dt).toFixed(1);
+        $("trafik").textContent = `${Math.round(yuborildi.slice(1).reduce((a, [, n]) => a + n, 0) * 8 / 1000 / dt)} kbit/s`;
+      }
+      xabar("Uzatilmoqda. Operator panelida video ko'rinishi kerak.", "ok");
+    } catch (e) {
+      xabar(`Yuborib bo'lmadi: ${e.message}. Qayta urinilmoqda...`, "xato");
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    const kutish = 1000 / parseFloat($("fps").value) - (performance.now() - boshi);
+    if (kutish > 0) await new Promise(r => setTimeout(r, kutish));
+  }
+}
+
+async function boshla() {
+  try {
+    await kameraOch();
+  } catch (e) {
+    return xabar(`Kamerani ochib bo'lmadi: ${e.message}`, "xato");
+  }
+  try { qulf = await navigator.wakeLock.request("screen"); } catch (e) { /* ixtiyoriy */ }
+  ishlayapti = true;
+  $("boshla").textContent = "To'xtatish"; $("boshla").classList.add("yoniq");
+  aylana();
+}
+
+function toxtat() {
+  ishlayapti = false;
+  if (oqim) oqim.getTracks().forEach(t => t.stop());
+  oqim = null; rtt = null;
+  if (qulf) qulf.release().catch(() => {});
+  $("boshla").textContent = "Uzatishni boshlash"; $("boshla").classList.remove("yoniq");
+  xabar("To'xtatildi.", "");
+}
+
+$("boshla").onclick = () => ishlayapti ? toxtat() : boshla();
+$("olcham").onchange = async () => { if (ishlayapti) { oqim.getTracks().forEach(t => t.stop()); await kameraOch(); } };
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState === "visible" && ishlayapti) {
+    try { qulf = await navigator.wakeLock.request("screen"); } catch (e) {}
+  }
+});
+</script>
+</body>
+</html>
