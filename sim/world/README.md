@@ -397,4 +397,20 @@ Xulosalar:
 
 Cheklovlar: buyurtmalar kun bo'yi bir tekis (tushlik, kechki cho'qqi yo'q); bitta ombor; skuter bitta
 buyurtma oladi; yo'lda qaytayotgan skuterga yangi buyurtma berilmaydi; ob-havo va tirbandlik yo'q.
-CRM tomoni (`isroil096/CRM`, Spring Boot) hali ulanmagan: unda buyurtma qismi yo'q, keyingi qadam.
+CRM tomoni (`isroil096/CRM`, Spring Boot): `/api/deliveries` moduli shu API ga ulanadi (alohida o'zgarish).
+
+# Mijoz Telegram boti (`mijoz_bot.py`, 2026-10-18)
+
+Mijoz buyurtmasini Telegramda kuzatadi va skuter qutisini ochadi. Operator botidan alohida bot:
+@BotFather dan yangi token olib, serverda `MIJOZ_TELEGRAM_TOKEN` ga yoziladi.
+
+1. Buyurtma berilganda flot javobida `kuzatish_havola` bor: `https://t.me/<bot>?start=<id>_<kod>`. Kod
+   tasodifiy sir, shuning uchun havolasiz boshqa odamning buyurtmasini ko'rib yoki ochib bo'lmaydi. CRM bu
+   havolani mijozga yuboradi.
+2. Mijoz havolani bosadi: bot buyurtma holatini ko'rsatadi va keyin o'zgarishlarni o'zi xabar qiladi
+   (skuter yuklanmoqda, yo'lda va taxminan necha daqiqada keladi, xaritadagi joylashuvi).
+3. Skuter yetib kelganda: PIN kodi va [Qutini ochish] tugmasi. Tugmani bosish yoki PIN ni yozish qutini
+   ochadi. 10 daqiqada ochilmasa, bot yuk omborga qaytganini aytadi.
+
+Buyruqlar: `/holat`, `/joy` (skuter qayerda). Sinovlar: `python3 mijoz_bot_sinovlar.py` (soxta Telegram
+API bilan, CI da ham): havola va sir kod, to'liq yo'l, PIN yozish, begona chat, mijoz kelmasa, joylashuv.

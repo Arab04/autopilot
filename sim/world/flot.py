@@ -20,13 +20,14 @@ qarang: Flot.buyurtma_ber, Flot.qutini_och, Flot.buyurtma_json.
 import bisect
 import math
 import random
+import secrets
 import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
 
 from xarita_sinovlar import CHIRCHIQ_MANZILLAR, CHIRCHIQ_OMBOR, CHIRCHIQ_OSM, _asosiy  # sys.path ni ham sozlaydi
-from autopilot.xarita import Xarita, kutish_bahosi
+from autopilot.xarita import YER_RADIUSI, Xarita, kutish_bahosi
 
 YURISH_TEZLIGI = 14 / 3.6         # m/s, chorrahalarda kutishdan tashqari (batafsil simulyatorga moslangan)
 SARF_KM = 2.5                     # batareya % / km (48V 25Ah, ~40 km)
@@ -102,6 +103,7 @@ class Buyurtma:
     topshirildi: float = None
     mijoz_keladi: float = None     # avto mijoz qachon keladi (sim vaqti)
     pin_urinish: int = 0
+    kuzatish: str = field(default_factory=lambda: secrets.token_urlsafe(9))  # mijoz boti havolasi uchun sir
     marshrut: Marshrut = field(default=None, repr=False)
 
 
@@ -149,10 +151,16 @@ class Flot:
         self.jurnal = deque(maxlen=200)
         self.jurnal_n = 0
         self.stat = {"operator_kutish": [], "operator_band_s": 0.0, "operator_chaqiruv": 0, "yordam": 0}
+        self.mijoz_bot_nomi = None   # mijoz boti ishlasa: kuzatish havolasi t.me/<nomi>?start=<id>_<kod>
 
     # ---------- xarita ----------
     def _xy(self, lat, lon):
         return self.xarita.xy(self.xarita.eng_yaqin_tugun(lat, lon))
+
+    def ll(self, x, y):
+        """Xarita.xy ning teskarisi: metr -> (lat, lon)."""
+        R = YER_RADIUSI
+        return round(math.degrees(y / R), 6), round(math.degrees(x / (R * self.xarita._cos)), 6)
 
     def _tasodifiy_manzillar(self, soni):
         """Ombordan 0,8-6 km uzoqlikdagi tasodifiy uylar (asosiy tarmoq tugunlari)."""
@@ -446,6 +454,9 @@ class Flot:
              "kutmoqda_daq": round((self.t - b.yaratildi) / 60, 1)}
         if sirli:
             j["pin"] = b.pin
+            j["kuzatish"] = f"{b.id}_{b.kuzatish}"
+            if self.mijoz_bot_nomi:
+                j["kuzatish_havola"] = f"https://t.me/{self.mijoz_bot_nomi}?start={b.id}_{b.kuzatish}"
         if b.topshirildi is not None:
             j["yetkazish_daq"] = round((b.topshirildi - b.yaratildi) / 60, 1)
         sk = self.skuterlar[b.skuter - 1] if b.skuter and b.skuter <= len(self.skuterlar) else None
@@ -455,7 +466,9 @@ class Flot:
             if sk.holat == "yuklash":
                 qolgan += max(0.0, sk.holat_tugaydi - self.t)
             j["eta_daq"] = round(qolgan / 60, 1)
-            j["skuter_xy"] = [round(c - o, 1) for c, o in zip(m.xy(sk.s), self.ombor_xy)]
+            x, y = m.xy(sk.s)
+            j["skuter_xy"] = [round(x - self.ombor_xy[0], 1), round(y - self.ombor_xy[1], 1)]
+            j["skuter_ll"] = list(self.ll(x, y))
         return j
 
     def holat_json(self):

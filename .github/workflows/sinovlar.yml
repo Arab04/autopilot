@@ -65,3 +65,5 @@ jobs:
           python-version: "3.12"
       - run: python flot_sinovlar.py
         working-directory: sim/world
+      - run: python mijoz_bot_sinovlar.py
+        working-directory: sim/world

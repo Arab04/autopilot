@@ -565,6 +565,14 @@ def main():
         bot = OperatorBot(os.environ["TELEGRAM_TOKEN"], sim.panel, chatlar, os.environ.get("PANEL_URL", ""))
         threading.Thread(target=bot.ishla, daemon=True).start()
         print(f"Telegram bot ishga tushdi, operatorlar: {sorted(chatlar) or 'hali yo`q (/start yuborib chat raqamini bilib oling)'}")
+    if os.environ.get("MIJOZ_TELEGRAM_TOKEN"):
+        from mijoz_bot import MijozBot
+        mbot = MijozBot(os.environ["MIJOZ_TELEGRAM_TOKEN"], flot)
+        try:
+            print(f"Mijoz boti ishga tushdi: @{mbot.boshlash()}")
+            threading.Thread(target=mbot.ishla, daemon=True).start()
+        except Exception as e:
+            print(f"Mijoz boti ishga tushmadi (token to'g'rimi?): {e}")
     print(f"Operator paneli: http://{'localhost' if a.host in ('127.0.0.1', '0.0.0.0') else a.host}:{srv.server_port}")
     try:
         srv.serve_forever()

@@ -9,6 +9,9 @@
 # sertifikati; serverda nginx bo'lsa unga alohida sayt qo'shiladi, bo'lmasa Caddy o'rnatiladi. O'z domeningiz bo'lsa: DOMEN=panel.misol.uz; o'chirish: HTTPS=0.
 # Telegram bot bilan (token @BotFather dan):
 #   curl -fsSL .../deploy/ornat.sh | TELEGRAM_TOKEN=123:ABC OPERATOR_CHATLAR=111,222 bash
+# Mijoz boti (buyurtmani kuzatish, qutini PIN bilan ochish; operator botidan alohida bot):
+#   curl -fsSL .../deploy/ornat.sh | MIJOZ_TELEGRAM_TOKEN=456:DEF bash
+# CRM uchun API kaliti (FLOT_API_KALIT) birinchi o'rnatishda avtomatik yaratiladi va oxirida ko'rsatiladi.
 #
 # Qayta ishga tushirilsa: kodni yangilaydi va xizmatni qayta yoqadi; parol va sozlamalar saqlanadi.
 # Sozlamalar: /etc/skuter-operator.env (o'zgartirgandan keyin: systemctl restart skuter-operator)
@@ -50,13 +53,16 @@ PANEL_URL=http://$IP:$PORT
 EOF
 else
   # Berilgan qiymatlar bilan yangilash (berilmaganlari o'zgarmaydi)
-  for k in OPERATOR_LOGIN OPERATOR_PAROL TELEGRAM_TOKEN OPERATOR_CHATLAR; do
+  for k in OPERATOR_LOGIN OPERATOR_PAROL TELEGRAM_TOKEN OPERATOR_CHATLAR MIJOZ_TELEGRAM_TOKEN FLOT_API_KALIT; do
     v="${!k:-}"
     if [ -n "$v" ]; then
       grep -q "^$k=" "$ENVF" && sed -i "s|^$k=.*|$k=$v|" "$ENVF" || echo "$k=$v" >> "$ENVF"
     fi
   done
 fi
+grep -q '^MIJOZ_TELEGRAM_TOKEN=' "$ENVF" || echo "MIJOZ_TELEGRAM_TOKEN=${MIJOZ_TELEGRAM_TOKEN:-}" >> "$ENVF"
+grep -q '^FLOT_API_KALIT=.\+' "$ENVF" || { sed -i '/^FLOT_API_KALIT=/d' "$ENVF";
+  echo "FLOT_API_KALIT=$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')" >> "$ENVF"; }
 chmod 600 "$ENVF"
 
 cat > /etc/systemd/system/skuter-operator.service <<EOF
@@ -182,3 +188,7 @@ LOGIN="$(grep '^OPERATOR_LOGIN=' "$ENVF" | cut -d= -f2-)"
 echo "Login: ${LOGIN:-operator}   Parol: $(grep '^OPERATOR_PAROL=' "$ENVF" | cut -d= -f2-)"
 grep -q '^TELEGRAM_TOKEN=.\+' "$ENVF" && echo "Telegram bot yoqilgan. Operatorlar: $(grep '^OPERATOR_CHATLAR=' "$ENVF" | cut -d= -f2-)" \
   || echo "Telegram bot o'chiq: TELEGRAM_TOKEN=... bilan qayta ishga tushiring"
+grep -q '^MIJOZ_TELEGRAM_TOKEN=.\+' "$ENVF" && echo "Mijoz boti: $(journalctl -u skuter-operator -n 30 --no-pager | grep -o 'Mijoz boti.*' | tail -1)" \
+  || echo "Mijoz boti o'chiq: MIJOZ_TELEGRAM_TOKEN=... bilan qayta ishga tushiring"
+[ "$HTTPS" = 1 ] && FURL="https://$DOMEN" || FURL="http://$IP:$PORT"
+echo "CRM sozlamasi: FLEET_URL=$FURL  FLEET_API_KEY=$(grep '^FLOT_API_KALIT=' "$ENVF" | cut -d= -f2-)"
