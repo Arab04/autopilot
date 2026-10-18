@@ -444,6 +444,8 @@ def server_yasa(sim: Simulyator, host="127.0.0.1", port=8765, parol=None, login=
             self._javob(404, {"xato": "topilmadi"})
 
         def _flot_post(self):
+            if "chunked" in self.headers.get("Transfer-Encoding", "").lower():
+                return self._javob(411, {"xato": "Content-Length sarlavhasi kerak (chunked tana o'qilmaydi)"})
             try:
                 n = int(self.headers.get("Content-Length", 0))
                 b = json.loads(self.rfile.read(min(n, 10000)) or b"{}")
