@@ -338,3 +338,63 @@ o'chiriladi). Serverda 80 va 443 portlar ochiq bo'lishi kerak.
 
 Bu faqat sinov uchun: haqiqiy skuterda video Jetson'dan WebRTC (H.264) bilan uzatiladi, MJPEG trafigi ancha
 katta (640x480, 10 kadr/s taxminan 0,7 Mbit/s).
+
+# E bosqich: flot va dispetcherlik (`flot.py`, 2026-10-18)
+
+Bir nechta virtual skuter, buyurtmalar navbati, operatorlar va batareya. Panelda: `/flot` sahifasi
+(operator panelidagi "Flot va buyurtmalar" havolasi).
+
+![Flot paneli](flot_panel.png)
+
+Model flot darajasida: skuter Chirchiq xaritasidagi haqiqiy marshrut bo'ylab yuradi, chorrahalarda kutadi,
+lekin har bir mashina va odam alohida simulyatsiya qilinmaydi (buni batafsil simulyator qiladi). Parametrlar
+batafsil simulyatordan olingan: yo'lda 14 km/soat, chorrahadagi kutish o'rtachasi xaritaning
+`kutish_bahosi()` dan (lognormal taqsimot), operator chaqirish ehtimoli 4-bosqich natijasidan (Navoiy
+ko'chasidagi ikki o'tishda 34%). Natija: 10 manzilga safar vaqti batafsil simulyatordan o'rtacha 9% farq qiladi.
+
+Buyurtma hayoti: navbatda → yuklanmoqda → yo'lda → mijozni kutmoqda (mijoz PIN bilan qutini ochadi) →
+topshirildi. Mijoz 10 daqiqada kelmasa, yuk omborga qaytadi. Dispetcher navbatdagi eng eski buyurtmani
+omborda turgan, borib-qaytishga zaryadi yetadigan (15% zahira bilan) skuterga beradi. Omborda turgan skuter
+doim zaryadga ulanadi (0 dan 100% gacha ~3,3 soat). Bir operator bir paytda bitta so'rovni ko'radi.
+
+HTTP API (CRM va keyin mijoz boti shu orqali ulanadi):
+
+| So'rov | Vazifasi |
+|---|---|
+| `POST /api/buyurtma` `{"lat", "lon", "nomi", "mijoz", "tel", "izoh"}` yoki `{"manzil": 1..40}` | Yangi buyurtma, javobda `id`, `pin`, `eta_daq` |
+| `GET /api/buyurtma/<id>` | Holat, taxminiy yetib kelish vaqti, skuter qayerda |
+| `POST /api/buyurtma/<id>/och` `{"pin"}` | Mijoz qutini ochadi (5 ta xato PIN dan keyin bloklanadi) |
+| `POST /api/buyurtma/<id>/bekor` | Hali skuterga berilmagan buyurtmani bekor qilish |
+| `GET /api/flot/holat`, `POST /api/flot/sozlama` | Panel uchun (faqat login/parol bilan) |
+
+Kirish: panel login/paroli (HTTP Basic) yoki CRM uchun `X-API-Kalit` sarlavhasi (serverda
+`FLOT_API_KALIT` muhit o'zgaruvchisi). Kalit faqat `/api/buyurtma...` yo'llarini ochadi.
+
+Sinovlar (`python3 flot_sinovlar.py`, CI da ham): model kalibrlash, dispetcher navbati, batareya, PIN,
+mijoz kelmasa, operator navbati, HTTP API va CRM kaliti, bir kunlik ish.
+
+## Nechta skuter va operator kerak (`python3 flot_sinovlar.py --jadval`, `natijalar_flot.txt`)
+
+10 soatlik ish kuni, 3 xil tasodifiy kun o'rtachasi; "o'z vaqtida" = buyurtmadan 45 daqiqa ichida.
+
+| Buyurtma/soat | Skuter | Operator | O'z vaqtida | O'rtacha | Operator band |
+|---|---|---|---|---|---|
+| 6 | 5 | 1 | 50% | 74 daq | 4% |
+| 6 | 8 | 1 | 96% | 26 daq | 5% |
+| 12 | 15 | 1 | 80% | 37 daq | 9% |
+| 12 | 20 | 1 | 98% | 27 daq | 9% |
+| 24 | 30 | 2 | 98% | 25 daq | 9% |
+| 6 (batareya almashtirish) | 6 | 1 | 90% | 28 daq | 5% |
+| 24 (batareya almashtirish) | 24 | 2 | 98% | 26 daq | 10% |
+
+Xulosalar:
+- Oddiy zaryadlashda har 1 buyurtma/soatga ~1,3-1,7 skuter kerak. Asosiy cheklov zaryadlash: skuterlar
+  vaqtning ~60% idagina band, qolganida omborda zaryadlanadi.
+- Batareyani almashtirish (zaryadlangan batareya bilan ~30 daqiqada) bilan ~1 skuter yetadi, ya'ni skuterlar
+  soni 20-30% kamayadi. Skuter tanlanayotganda olinadigan batareya muhim.
+- Chorrahalarga ruxsat berish uchun operator kam vaqt sarflaydi: 12 buyurtma/soatgacha bitta operator 10%
+  dan kam band. Haqiqatda operator videoni ham kuzatadi, shuning uchun bu pastki chegara.
+
+Cheklovlar: buyurtmalar kun bo'yi bir tekis (tushlik, kechki cho'qqi yo'q); bitta ombor; skuter bitta
+buyurtma oladi; yo'lda qaytayotgan skuterga yangi buyurtma berilmaydi; ob-havo va tirbandlik yo'q.
+CRM tomoni (`isroil096/CRM`, Spring Boot) hali ulanmagan: unda buyurtma qismi yo'q, keyingi qadam.

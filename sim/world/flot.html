@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flot va dispetcherlik</title>
+<style>
+  :root { --fon:#11151b; --panel:#1b222c; --chiziq:#2c3644; --matn:#e6edf3; --xira:#8b98a8;
+          --sariq:#f2c14e; --qizil:#e5484d; --yashil:#3fb950; --kok:#4c9aff; --binafsha:#b083f0; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--fon); color:var(--matn); font:14px/1.4 system-ui, sans-serif; }
+  header { display:flex; align-items:center; gap:12px; padding:8px 16px; border-bottom:1px solid var(--chiziq); flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; font-weight:600; }
+  header a { color:var(--kok); text-decoration:none; font-size:13px; }
+  header .vaqt { color:var(--xira); margin-left:auto; font-variant-numeric:tabular-nums; }
+  select, button, input { background:var(--panel); color:var(--matn); border:1px solid var(--chiziq);
+          border-radius:6px; padding:6px 10px; font:inherit; }
+  button { cursor:pointer; } button:hover { border-color:var(--kok); }
+  input { width:100%; }
+  .korsatkich { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:8px; padding:12px 16px 0; }
+  .korsatkich div { background:var(--panel); border:1px solid var(--chiziq); border-radius:8px; padding:8px 10px; }
+  .korsatkich b { display:block; font-size:22px; font-variant-numeric:tabular-nums; }
+  .izoh { color:var(--xira); font-size:12px; }
+  main { display:grid; grid-template-columns:minmax(0, 1fr) 380px; gap:12px; padding:12px 16px; }
+  @media (max-width: 950px) { main { grid-template-columns:1fr; } }
+  .karta { background:var(--panel); border:1px solid var(--chiziq); border-radius:8px; padding:12px; }
+  .karta h2 { font-size:14px; margin:0 0 8px; }
+  #xarita { width:100%; height:calc(100vh - 230px); min-height:420px; display:block; border-radius:8px; background:#161b22; cursor:grab; }
+  .yon { display:flex; flex-direction:column; gap:12px; min-width:0; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th, td { text-align:left; padding:4px 4px; border-bottom:1px solid #222a35; vertical-align:top; }
+  th { color:var(--xira); font-weight:500; }
+  .nuqta { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px; }
+  .sozlama { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .sozlama label { font-size:12px; color:var(--xira); display:flex; flex-direction:column; gap:2px; }
+  .forma { display:grid; gap:6px; }
+  #xabar { font-size:12px; min-height:16px; }
+  #xabar.xato { color:var(--qizil); } #xabar.ok { color:var(--yashil); }
+  .jadval { max-height:300px; overflow:auto; }
+  #jurnal { max-height:160px; overflow:auto; font:12px ui-monospace, monospace; }
+  #jurnal div { padding:2px 0; border-bottom:1px solid #222a35; }
+  .pin { font-family:ui-monospace, monospace; letter-spacing:1px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Flot va dispetcherlik</h1>
+  <a href="/">← Bitta skuter (operator paneli)</a>
+  <span class="vaqt" id="vaqt">-</span>
+  <button id="pauza">Pauza</button>
+</header>
+<div class="korsatkich">
+  <div><span class="izoh">Buyurtmalar</span><b id="kBuyurtma">-</b><span class="izoh" id="kNavbat"></span></div>
+  <div><span class="izoh">O'rtacha yetkazish</span><b id="kOrtacha">-</b><span class="izoh" id="kP90"></span></div>
+  <div><span class="izoh">45 daqiqada yetdi</span><b id="kVaqtida">-</b><span class="izoh" id="kQayt"></span></div>
+  <div><span class="izoh">Operator chaqiruvi</span><b id="kOperator">-</b><span class="izoh" id="kOpBand"></span></div>
+  <div><span class="izoh">Skuterlar bandligi</span><b id="kSkuter">-</b><span class="izoh" id="kKm"></span></div>
+</div>
+<main>
+  <canvas id="xarita"></canvas>
+  <div class="yon">
+    <div class="karta">
+      <h2>Yangi buyurtma</h2>
+      <div class="forma">
+        <select id="manzil" aria-label="Manzil"></select>
+        <input id="mijoz" placeholder="Mijoz ismi (ixtiyoriy)">
+        <label class="izoh"><input type="checkbox" id="qolda" style="width:auto"> Qutini men PIN bilan ochaman (avtomatik mijoz emas)</label>
+        <button id="yubor">Buyurtma berish</button>
+        <div id="xabar"></div>
+      </div>
+    </div>
+    <div class="karta">
+      <h2>Buyurtmalar</h2>
+      <div class="jadval"><table><thead><tr><th>#</th><th>Manzil</th><th>Holat</th><th>Skuter</th><th>PIN</th></tr></thead>
+        <tbody id="buyurtmalar"></tbody></table></div>
+    </div>
+    <div class="karta">
+      <h2>Skuterlar</h2>
+      <div class="jadval"><table><thead><tr><th>#</th><th>Holat</th><th>Zaryad</th><th>Buyurtma</th></tr></thead>
+        <tbody id="skuterlar"></tbody></table></div>
+    </div>
+    <div class="karta">
+      <h2>Sozlamalar</h2>
+      <div class="sozlama">
+        <label>Skuterlar<input type="number" id="sSkuter" min="1" max="50"></label>
+        <label>Operatorlar<input type="number" id="sOperator" min="1" max="20"></label>
+        <label>Avtomatik buyurtma / soat<input type="number" id="sBuyurtma" min="0" max="120" step="1"></label>
+        <label>Vaqt tezligi<select id="sTezlik"><option>1</option><option>5</option><option>10</option><option>30</option><option>60</option></select></label>
+      </div>
+      <div class="izoh" style="margin-top:6px">Skuter soni kamaytirilsa, faqat omborda turganlari olib tashlanadi.</div>
+    </div>
+    <div class="karta"><h2>Hodisalar</h2><div id="jurnal"></div></div>
+  </div>
+</main>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const RANG = {omborda:"#8b98a8", zaryad:"#4c9aff", yuklash:"#b083f0", mijozga:"#3fb950", mijozda:"#f2c14e", qaytish:"#2ea6a6"};
+const HOLAT = {yangi:"Navbatda", tayinlandi:"Yuklanmoqda", yolda:"Yo'lda", yetib_keldi:"Mijozni kutmoqda",
+               topshirildi:"Topshirildi", qaytarildi:"Qaytarildi", bekor:"Bekor"};
+let xarita = null, h = null, sozlamaYozildi = false;
+let kor = {x: 0, y: 0, m: 0.12}, sudrash = null;
+
+async function api(yol, tana) {
+  const r = await fetch(yol, tana === undefined ? {} :
+    {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(tana)});
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.xato || `server ${r.status}`);
+  return j;
+}
+
+function vaqtStr(t) {
+  const s = Math.floor(t), soat = Math.floor(s / 3600), d = Math.floor(s % 3600 / 60);
+  return `${soat}:${String(d).padStart(2, "0")}`;
+}
+
+// ---------- Xarita ----------
+const cv = $("xarita"), cx = cv.getContext("2d");
+function ekranga(x, y) { return [cv.width / 2 + (x - kor.x) * kor.m, cv.height / 2 - (y - kor.y) * kor.m]; }
+
+function chiz() {
+  const dpr = window.devicePixelRatio || 1;
+  if (cv.width !== cv.clientWidth * dpr) { cv.width = cv.clientWidth * dpr; cv.height = cv.clientHeight * dpr; }
+  cx.setTransform(1, 0, 0, 1, 0, 0);
+  cx.fillStyle = "#161b22"; cx.fillRect(0, 0, cv.width, cv.height);
+  if (!xarita) return;
+  const m = kor.m;
+  for (const [katta, ...q] of xarita.kochalar) {
+    cx.strokeStyle = katta ? "#3a4555" : "#273040"; cx.lineWidth = (katta ? 3 : 1.5) * dpr;
+    cx.beginPath();
+    q.forEach(([x, y], i) => { const [a, b] = ekranga(x, y); i ? cx.lineTo(a, b) : cx.moveTo(a, b); });
+    cx.stroke();
+  }
+  cx.font = `${11 * dpr}px system-ui`;
+  xarita.manzillar.forEach(([n, x, y], i) => {
+    const [a, b] = ekranga(x, y);
+    cx.fillStyle = i < 10 ? "#c9d1d9" : "#56606e";
+    cx.beginPath(); cx.arc(a, b, (i < 10 ? 3.5 : 2.5) * dpr, 0, 7); cx.fill();
+    if (i < 10 && m > 0.04) cx.fillText(n, a + 6 * dpr, b + 4 * dpr);
+  });
+  const [ox, oy] = ekranga(0, 0);
+  cx.fillStyle = "#f2c14e"; cx.fillRect(ox - 7 * dpr, oy - 7 * dpr, 14 * dpr, 14 * dpr);
+  cx.fillStyle = "#11151b"; cx.font = `bold ${10 * dpr}px system-ui`; cx.fillText("O", ox - 4 * dpr, oy + 4 * dpr);
+  if (!h) return;
+  // Faol buyurtmalar manzili
+  for (const b of h.buyurtmalar) {
+    if (!["yangi", "tayinlandi", "yolda", "yetib_keldi"].includes(b.holat)) continue;
+    const q = xarita.manzillar.find(([n]) => n === b.nomi);
+    if (!q) continue;
+    const [a, c] = ekranga(q[1], q[2]);
+    cx.strokeStyle = "#f2c14e"; cx.lineWidth = 2 * dpr;
+    cx.beginPath(); cx.arc(a, c, 8 * dpr, 0, 7); cx.stroke();
+  }
+  for (const s of h.skuterlar) {
+    if (s.holat === "omborda" || s.holat === "zaryad" || s.holat === "yuklash") continue;
+    const [a, b] = ekranga(s.xy[0], s.xy[1]);
+    cx.fillStyle = RANG[s.holat]; cx.beginPath(); cx.arc(a, b, 6 * dpr, 0, 7); cx.fill();
+    if (s.operator) { cx.strokeStyle = "#e5484d"; cx.lineWidth = 3 * dpr; cx.beginPath(); cx.arc(a, b, 10 * dpr, 0, 7); cx.stroke(); }
+    cx.fillStyle = "#e6edf3"; cx.font = `bold ${11 * dpr}px system-ui`; cx.fillText(s.id, a + 8 * dpr, b - 6 * dpr);
+  }
+  const omborda = h.skuterlar.filter(s => ["omborda", "zaryad", "yuklash"].includes(s.holat)).length;
+  cx.fillStyle = "#e6edf3"; cx.font = `${12 * dpr}px system-ui`;
+  cx.fillText(`omborda: ${omborda}`, ox + 10 * dpr, oy - 10 * dpr);
+  cx.fillStyle = "#8b98a8"; cx.font = `${11 * dpr}px system-ui`;
+  cx.fillText("sariq kvadrat: ombor · aylana: buyurtma manzili · qizil halqa: operator ko'ryapti · © OpenStreetMap",
+              8 * dpr, cv.height - 8 * dpr);
+}
+
+cv.addEventListener("wheel", e => { e.preventDefault(); kor.m = Math.min(2, Math.max(0.03, kor.m * (e.deltaY < 0 ? 1.2 : 1 / 1.2))); chiz(); }, {passive: false});
+cv.addEventListener("pointerdown", e => { sudrash = [e.clientX, e.clientY, kor.x, kor.y]; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener("pointermove", e => {
+  if (!sudrash) return;
+  const dpr = window.devicePixelRatio || 1;
+  kor.x = sudrash[2] - (e.clientX - sudrash[0]) * dpr / kor.m; kor.y = sudrash[3] + (e.clientY - sudrash[1]) * dpr / kor.m; chiz();
+});
+cv.addEventListener("pointerup", () => sudrash = null);
+window.addEventListener("resize", chiz);
+
+// ---------- Jadvallar ----------
+function yangilaJadval() {
+  const k = h.korsatkich;
+  $("vaqt").textContent = `sim vaqti ${vaqtStr(h.t)} · ${h.vaqt_tezligi}x${h.pauza ? " · PAUZA" : ""}`;
+  $("pauza").textContent = h.pauza ? "Davom" : "Pauza";
+  $("kBuyurtma").textContent = `${k.topshirildi} / ${k.buyurtma}`;
+  $("kNavbat").textContent = `topshirildi / jami · navbatda ${k.navbatda}`;
+  $("kOrtacha").textContent = k.ortacha_daq === null ? "-" : `${k.ortacha_daq} daq`;
+  $("kP90").textContent = k.p90_daq === null ? "" : `90% i ${k.p90_daq} daqiqagacha`;
+  $("kVaqtida").textContent = k.oz_vaqtida_foiz === null ? "-" : `${k.oz_vaqtida_foiz}%`;
+  $("kQayt").textContent = `mijoz kelmadi: ${k.qaytarildi}`;
+  $("kOperator").textContent = `${k.operator_chaqiruv_soat} / soat`;
+  $("kOpBand").textContent = `${h.operatorlar} operator · band ${k.operator_bandlik_foiz}% · navbat ${h.operator_navbat}`;
+  $("kSkuter").textContent = `${k.skuter_bandlik_foiz}%`;
+  $("kKm").textContent = `${h.skuterlar.length} ta skuter · ${k.km} km`;
+  $("buyurtmalar").innerHTML = "";
+  for (const b of h.buyurtmalar) {
+    const tr = $("buyurtmalar").insertRow();
+    let holat = HOLAT[b.holat] || b.holat;
+    if (b.eta_daq !== undefined) holat += ` · ~${Math.round(b.eta_daq)} daq`;
+    if (b.yetkazish_daq !== undefined) holat += ` · ${Math.round(b.yetkazish_daq)} daq`;
+    tr.insertCell().textContent = b.id;
+    tr.insertCell().textContent = b.nomi + (b.manba !== "avto" ? ` (${b.manba})` : "");
+    tr.insertCell().textContent = holat;
+    tr.insertCell().textContent = b.skuter || "-";
+    const td = tr.insertCell();
+    td.innerHTML = `<span class="pin">${b.pin}</span>`;
+    if (b.holat === "yetib_keldi") {
+      const btn = document.createElement("button");
+      btn.textContent = "Ochish"; btn.style.padding = "1px 6px"; btn.style.marginLeft = "4px";
+      btn.onclick = async () => {
+        const pin = prompt(`Buyurtma #${b.id}: qutini ochish uchun PIN`);
+        if (pin === null) return;
+        try { await api(`/api/buyurtma/${b.id}/och`, {pin}); xabar(`#${b.id} topshirildi`, "ok"); }
+        catch (e) { xabar(e.message, "xato"); }
+      };
+      td.appendChild(btn);
+    }
+  }
+  $("skuterlar").innerHTML = "";
+  for (const s of h.skuterlar) {
+    const tr = $("skuterlar").insertRow();
+    tr.insertCell().innerHTML = `<span class="nuqta" style="background:${RANG[s.holat]}"></span>${s.id}`;
+    tr.insertCell().textContent = s.holat_nomi;
+    tr.insertCell().textContent = `${s.batareya}%`;
+    tr.insertCell().textContent = s.buyurtma ? `#${s.buyurtma}` : "-";
+  }
+  $("jurnal").innerHTML = h.jurnal.slice().reverse().map(j => `<div>${vaqtStr(j.t)} ${j.matn.replace(/</g, "&lt;")}</div>`).join("");
+  if (!sozlamaYozildi) {
+    $("sSkuter").value = h.skuterlar.length; $("sOperator").value = h.operatorlar;
+    $("sBuyurtma").value = h.avto_buyurtma; $("sTezlik").value = String(h.vaqt_tezligi);
+    sozlamaYozildi = true;
+  }
+}
+
+function xabar(matn, turi) { $("xabar").textContent = matn; $("xabar").className = turi || ""; }
+
+async function yangila() {
+  try { h = await api("/api/flot/holat"); yangilaJadval(); chiz(); } catch (e) { $("vaqt").textContent = "aloqa yo'q"; }
+}
+
+async function boshla() {
+  xarita = await api("/api/flot/xarita");
+  // Boshlang'ich ko'rinish: nomli 10 manzil va ombor sig'sin
+  const q = xarita.manzillar.slice(0, 10).concat([["", 0, 0]]);
+  const xs = q.map(m => m[1]), ys = q.map(m => m[2]);
+  const dpr = window.devicePixelRatio || 1;
+  kor.x = (Math.min(...xs) + Math.max(...xs)) / 2; kor.y = (Math.min(...ys) + Math.max(...ys)) / 2;
+  kor.m = 0.85 * Math.min(cv.clientWidth * dpr / (Math.max(...xs) - Math.min(...xs) + 1),
+                          cv.clientHeight * dpr / (Math.max(...ys) - Math.min(...ys) + 1));
+  const mz = await api("/api/manzillar");
+  mz.forEach(m => $("manzil").add(new Option(`${m.raqam}. ${m.nomi}`, m.raqam)));
+  chiz();
+  yangila();
+  setInterval(yangila, 1000);
+}
+
+$("yubor").onclick = async () => {
+  try {
+    const b = await api("/api/buyurtma", {manzil: parseInt($("manzil").value), mijoz: $("mijoz").value,
+                                          avto_mijoz: !$("qolda").checked});
+    xabar(`Buyurtma #${b.id} qabul qilindi. PIN: ${b.pin}`, "ok");
+    yangila();
+  } catch (e) { xabar(e.message, "xato"); }
+};
+$("pauza").onclick = () => api("/api/flot/sozlama", {pauza: !(h && h.pauza)}).then(yangila);
+for (const [id, kalit, f] of [["sSkuter", "skuterlar", parseInt], ["sOperator", "operatorlar", parseInt],
+                              ["sBuyurtma", "avto_buyurtma", parseFloat], ["sTezlik", "vaqt_tezligi", parseFloat]]) {
+  $(id).onchange = e => api("/api/flot/sozlama", {[kalit]: f(e.target.value)}).then(yangila).catch(err => xabar(err.message, "xato"));
+}
+boshla();
+</script>
+</body>
+</html>
