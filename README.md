@@ -19,6 +19,7 @@ Reja: [docs/dastur-reja.md](docs/dastur-reja.md)
 | `safety/` | Mikrokontroller xavfsizlik dasturi | rejada |
 | `teleop/` | Teleoperatsiya | rejada |
 | `fleet/` | Flot, dispetcherlik, CRM, Telegram bot | rejada |
+| `crm/` | Do'kon CRM'i (Spring Boot), skuter bilan yetkazish moduli | ishlayapti |
 
 ## Sinovlarni ishga tushirish
 

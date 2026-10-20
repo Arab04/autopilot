@@ -44,12 +44,17 @@
   .belgi.qolda { background:var(--sariq); color:#111; }
   .belgi.avto { background:#244a7a; }
   #aloqa { margin-left:auto; color:var(--xira); font-size:12px; }
+  #kameraKadr { width:100%; display:none; border-radius:6px; background:#000; margin-top:6px; cursor:zoom-in; }
+  #kameraKadr.katta { position:fixed; inset:16px; width:calc(100% - 32px); height:calc(100% - 32px); object-fit:contain;
+          z-index:10; margin:0; cursor:zoom-out; }
+  #kameraHolat.eski { color:var(--sariq); }
 </style>
 </head>
 <body>
 <header>
   <h1>Skuter operator paneli</h1>
   <span class="safar" id="safarNomi">yuklanmoqda...</span>
+  <a href="/flot" style="color:var(--kok);text-decoration:none;font-size:13px">Flot va buyurtmalar →</a>
   <span id="aloqa">aloqa: -</span>
   <select id="manzil" aria-label="Manzil"></select>
   <select id="yonalish" aria-label="Yo'nalish"><option value="0">ombordan</option><option value="1">omborga qaytish</option></select>
@@ -62,6 +67,11 @@
 <main>
   <canvas id="korinish"></canvas>
   <div class="yon">
+    <div class="karta">
+      <div class="qator"><span>Kamera</span><b id="kameraHolat">ulanmagan</b></div>
+      <img id="kameraKadr" alt="Skuter kamerasi">
+      <div class="izoh" id="kameraIzoh">Sinov uchun telefonda shu panel manzilining <b>/kamera</b> sahifasini oching.</div>
+    </div>
     <div class="karta">
       <div class="qator"><span>Tezlik</span><span><span class="belgi avto" id="rejimBelgi">AVTONOM</span></span></div>
       <div class="katta"><span id="tezlik">0.0</span> <span style="font-size:16px;color:var(--xira)">km/soat</span></div>
@@ -387,6 +397,30 @@ document.addEventListener("keydown", e => {
   }[k];
   if (tugma) { e.preventDefault(); tugma(); }
 });
+
+// ---------- Kamera ----------
+$("kameraKadr").onclick = e => e.target.classList.toggle("katta");
+async function kameraYangila() {
+  let k;
+  try { k = await (await fetch("/kamera/holat")).json(); } catch (e) { return; }
+  const img = $("kameraKadr");
+  if (k.bor && k.faol) {
+    if (!img.dataset.oqim) { img.dataset.oqim = "1"; img.src = "/kamera/oqim?" + Date.now(); }
+    img.style.display = "block";
+    $("kameraIzoh").style.display = "none";
+    $("kameraHolat").textContent = k.kechikish_ms === null ? `${k.fps} kadr/s`
+      : `~${k.kechikish_ms} ms · ${k.fps} kadr/s · ${k.kbit_s} kbit/s`;
+    $("kameraHolat").className = k.kechikish_ms > 500 ? "eski" : "";
+  } else {
+    if (img.dataset.oqim) { delete img.dataset.oqim; img.removeAttribute("src"); }
+    img.style.display = "none";
+    $("kameraIzoh").style.display = "";
+    $("kameraHolat").textContent = k.bor ? `uzildi (${Math.round(k.yosh_ms / 1000)} s oldin)` : "ulanmagan";
+    $("kameraHolat").className = k.bor ? "eski" : "";
+  }
+}
+setInterval(kameraYangila, 1000);
+kameraYangila();
 
 setInterval(yangila, 100);
 yangila();

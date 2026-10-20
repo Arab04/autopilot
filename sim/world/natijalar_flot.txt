@@ -1,0 +1,22 @@
+Flot modeli: 10 soatlik ish kuni, 3 xil tasodifiy kun o'rtachasi. O'z vaqtida = buyurtmadan 45 daqiqa ichida topshirildi.
+
+Buyurtma/soat Skuter Operator O`z vaqtida  O`rtacha Navbatda Operator chaq./soat Operator band Skuter band
+            3      3        1         64%     54 daq        7                 1.3            2%         58%
+            3      5        1         99%     26 daq        0                 1.6            3%         38%
+            6      5        1         50%     74 daq       15                 3.0            4%         64%
+            6      8        1         96%     26 daq        0                 3.8            5%         58%
+            6     10        1         99%     23 daq        0                 2.9            4%         39%
+           12     10        1         51%     64 daq       29                 5.0            7%         63%
+           12     15        1         80%     37 daq        6                 7.0            9%         59%
+           12     20        1         98%     27 daq        0                 7.1            9%         42%
+           24     20        1         49%     78 daq       79                10.6           15%         63%
+           24     30        2         98%     25 daq        0                12.4            9%         53%
+           24     40        2         98%     25 daq        0                15.2           11%         45%
+
+Batareya almashtirish bilan (zaryadlash 3,3 soat o'rniga bo'sh batareya ~30 daqiqada to'lasiga almashtiriladi):
+            6      5        1         79%     34 daq        2                 3.7            5%         81%
+            6      6        1         90%     28 daq        1                 3.4            5%         68%
+           12     10        1         75%     40 daq        8                 6.1            9%         84%
+           12     12        1         76%     36 daq        3                 7.6           11%         79%
+           24     20        1         67%     43 daq       11                12.9           18%         87%
+           24     24        2         98%     26 daq        2                14.2           10%         77%

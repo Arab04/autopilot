@@ -4,6 +4,7 @@
 
 1-5: simulyatorning operator interfeysi (chorrahaga ruxsat, rad, qo'lda boshqarish, favqulodda to'xtatish,
 yordam so'rovida boshqaruvni olish). 6: qo'lda boshqarishda ham to'siqqa urilmaydi. 7: HTTP server.
+10: sinov kamerasi (telefon kadr yuboradi, panel MJPEG oqimini oladi).
 """
 
 import json
@@ -234,6 +235,52 @@ def sinov_bot():
     return ok, f"{len(yuborilgan)} ta API chaqiruv"
 
 
+def sinov_kamera():
+    """Telefon kadrni POST qiladi (parol bilan), panel uni MJPEG oqimidan oladi; parolsiz va JPEG bo'lmagan
+    kadr qabul qilinmaydi."""
+    import base64
+    import http.client
+    import operator_panel as opn
+    sim = opn.Simulyator(opn.PanelOperator())
+    srv = opn.server_yasa(sim, port=0, parol="sir", login="admin")
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    auth = {"Authorization": "Basic " + base64.b64encode(b"admin:sir").decode()}
+
+    def sorov(usul, yol, tana=None, sarlavha=None):
+        c = http.client.HTTPConnection("127.0.0.1", srv.server_port, timeout=5)
+        c.request(usul, yol, body=tana, headers=sarlavha or {})
+        r = c.getresponse()
+        return r.status, r.read()
+
+    kadr1 = b"\xff\xd8" + b"birinchi" * 100 + b"\xff\xd9"
+    kadr2 = b"\xff\xd8" + b"ikkinchi" * 100 + b"\xff\xd9"
+    try:
+        sahifa, _ = sorov("GET", "/kamera", sarlavha=auth)
+        bosh = json.loads(sorov("GET", "/kamera/holat", sarlavha=auth)[1])
+        parolsiz, _ = sorov("POST", "/kamera/kadr", kadr1, {"Content-Type": "image/jpeg"})
+        notogri, _ = sorov("POST", "/kamera/kadr", b"salom", auth)
+        ok1, _ = sorov("POST", "/kamera/kadr", kadr1, {**auth, "X-Rtt": "84"})
+        # Oqim: ulanish paytidagi oxirgi kadrni darhol, keyingisini kelishi bilan beradi
+        c = http.client.HTTPConnection("127.0.0.1", srv.server_port, timeout=5)
+        c.request("GET", "/kamera/oqim", headers=auth)
+        r = c.getresponse()
+        turi = r.getheader("Content-Type")
+        olingan = b""
+        while kadr1 not in olingan:
+            olingan += r.read1(65536)
+        sorov("POST", "/kamera/kadr", kadr2, {**auth, "X-Rtt": "nan"})
+        while kadr2 not in olingan:
+            olingan += r.read1(65536)
+        c.close()
+        h = json.loads(sorov("GET", "/kamera/holat", sarlavha=auth)[1])
+        ok = (sahifa == 200 and bosh == {"bor": False} and parolsiz == 401 and notogri == 400 and ok1 == 200
+              and turi.startswith("multipart/x-mixed-replace") and h["bor"] and h["kadrlar"] == 2
+              and h["rtt_ms"] == 84 and h["kechikish_ms"] >= 42)
+        return ok, f"javoblar {sahifa}/{parolsiz}/{notogri}/{ok1}, kechikish {h.get('kechikish_ms')} ms"
+    finally:
+        srv.shutdown()
+
+
 SINOVLAR = [
     ("1. Chorrahada operator ruxsat beradi", sinov_tasdiq),
     ("1b. Ko'ndalang oqim: ruxsatdan keyin ham skuter o'zi tekshiradi", sinov_oqim),
@@ -245,6 +292,7 @@ SINOVLAR = [
     ("7. HTTP server: sahifa, holat, buyruqlar", sinov_http),
     ("8. Server paroli (HTTP Basic)", sinov_parol),
     ("9. Telegram bot: so'rov, operator javobi, begona odam", sinov_bot),
+    ("10. Sinov kamerasi: kadr yuborish va MJPEG oqimi", sinov_kamera),
 ]
 
 

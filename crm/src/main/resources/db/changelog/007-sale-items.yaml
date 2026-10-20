@@ -1,0 +1,44 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-sale-items
+      author: crm
+      changes:
+        - createTable:
+            tableName: sale_items
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+              - column:
+                  name: sale_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: product_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: quantity
+                  type: INT
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: price
+                  type: NUMERIC(12,2)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: total
+                  type: NUMERIC(12,2)
+                  constraints:
+                    nullable: false

@@ -293,10 +293,10 @@ Sinovlar (`python3 operator_sinovlar.py`, CI da ham): dastur operator rolini o'y
 1. ruxsat beradi, 1b. ko'ndalang oqimda doim ruxsat beradi (skuter o'zi tekshiradi, to'qnashuv yo'q),
 2. ikki marta rad etadi, 3. qo'lda boshqarib qaytaradi, 4. favqulodda to'xtatadi, 5. so'rovga javob
 bermaydi, yordam so'rovida boshqaruvni olib chorrahadan o'tkazadi, 6. to'xtagan mashinaga qarab
-20 km/soatda boshqaradi (skuter to'xtaydi), 7. HTTP server.
+20 km/soatda boshqaradi (skuter to'xtaydi), 7. HTTP server, 8. parol, 9. Telegram bot, 10. sinov kamerasi.
 
-Cheklovlar: panel HTTPS siz (IP manzil, domen yo'q), parol HTTP Basic bilan;
-video o'rniga simulyatordan olingan sxema ko'rsatiladi; aloqa kechikishi va uzilishi hali modellashtirilmagan.
+Cheklovlar: parol HTTP Basic bilan; simulyator skuteri uchun video yo'q (sxema ko'rsatiladi, sinov kamerasi
+alohida, quyida); aloqa kechikishi va uzilishi simulyatorda hali modellashtirilmagan.
 Haqiqiy skuterda shu interfeys (so'rov, ruxsat, qo'lda buyruq, to'xtatish) mobil aloqa orqali ishlaydi.
 
 ## Serverga joylash va Telegram bot (2026-10-15)
@@ -316,3 +316,101 @@ Birinchi javob ishlaydi, qolganlarda tugmalar olib tashlanadi; eskirgan so'rovga
 qilmaydi; ro'yxatda yo'q odam boshqara olmaydi. Buyruqlar: `/start` (chat raqamini aytadi), `/holat`,
 `/toxtat`, `/davom`.
 
+
+## Sinov kamerasi: telefon skuter kamerasi o'rnida (2026-10-15)
+
+Skuter yig'ilguncha telefon kamerasi operator paneliga ulanadi: Chirchiqda 4G orqali video qancha
+kechikishini skutersiz o'lchash uchun.
+
+1. Telefonda `https://<server>/kamera` ni ochib, panel login/paroli bilan kiring, "Uzatishni boshlash".
+2. Operator panelida (o'ng ustun tepasida) video, kadr/s, trafik va taxminiy kechikish ko'rinadi.
+   Video bosilsa katta ochiladi.
+
+Qanday ishlaydi (`kamera.py`, `kamera.html`): telefon har kadrni JPEG qilib `POST /kamera/kadr` ga yuboradi
+va javobni kutadi (aloqa sekinlashsa kadrlar navbatga yig'ilmaydi, kamroq yuboriladi). Panel
+`GET /kamera/oqim` dan MJPEG oqimini oladi. Kechikish = telefon o'lchagan yuborish vaqtining yarmi + kadrning
+serverdagi yoshi. Har kadrga telefon soati yoziladi: operator ekrani va telefonni birga suratga olib, to'liq
+kechikishni ham tekshirsa bo'ladi.
+
+Brauzer kamerani faqat HTTPS sahifada beradi, shuning uchun `ornat.sh` Caddy o'rnatadi va
+`<ip>.sslip.io` domeniga Let's Encrypt sertifikati oladi (`DOMEN=...` bilan o'z domeningiz, `HTTPS=0` bilan
+o'chiriladi). Serverda 80 va 443 portlar ochiq bo'lishi kerak.
+
+Bu faqat sinov uchun: haqiqiy skuterda video Jetson'dan WebRTC (H.264) bilan uzatiladi, MJPEG trafigi ancha
+katta (640x480, 10 kadr/s taxminan 0,7 Mbit/s).
+
+# E bosqich: flot va dispetcherlik (`flot.py`, 2026-10-18)
+
+Bir nechta virtual skuter, buyurtmalar navbati, operatorlar va batareya. Panelda: `/flot` sahifasi
+(operator panelidagi "Flot va buyurtmalar" havolasi).
+
+![Flot paneli](flot_panel.png)
+
+Model flot darajasida: skuter Chirchiq xaritasidagi haqiqiy marshrut bo'ylab yuradi, chorrahalarda kutadi,
+lekin har bir mashina va odam alohida simulyatsiya qilinmaydi (buni batafsil simulyator qiladi). Parametrlar
+batafsil simulyatordan olingan: yo'lda 14 km/soat, chorrahadagi kutish o'rtachasi xaritaning
+`kutish_bahosi()` dan (lognormal taqsimot), operator chaqirish ehtimoli 4-bosqich natijasidan (Navoiy
+ko'chasidagi ikki o'tishda 34%). Natija: 10 manzilga safar vaqti batafsil simulyatordan o'rtacha 9% farq qiladi.
+
+Buyurtma hayoti: navbatda → yuklanmoqda → yo'lda → mijozni kutmoqda (mijoz PIN bilan qutini ochadi) →
+topshirildi. Mijoz 10 daqiqada kelmasa, yuk omborga qaytadi. Dispetcher navbatdagi eng eski buyurtmani
+omborda turgan, borib-qaytishga zaryadi yetadigan (15% zahira bilan) skuterga beradi. Omborda turgan skuter
+doim zaryadga ulanadi (0 dan 100% gacha ~3,3 soat). Bir operator bir paytda bitta so'rovni ko'radi.
+
+HTTP API (CRM va keyin mijoz boti shu orqali ulanadi):
+
+| So'rov | Vazifasi |
+|---|---|
+| `POST /api/buyurtma` `{"lat", "lon", "nomi", "mijoz", "tel", "izoh"}` yoki `{"manzil": 1..40}` | Yangi buyurtma, javobda `id`, `pin`, `eta_daq` |
+| `GET /api/buyurtma/<id>` | Holat, taxminiy yetib kelish vaqti, skuter qayerda |
+| `POST /api/buyurtma/<id>/och` `{"pin"}` | Mijoz qutini ochadi (5 ta xato PIN dan keyin bloklanadi) |
+| `POST /api/buyurtma/<id>/bekor` | Hali skuterga berilmagan buyurtmani bekor qilish |
+| `GET /api/flot/holat`, `POST /api/flot/sozlama` | Panel uchun (faqat login/parol bilan) |
+
+Kirish: panel login/paroli (HTTP Basic) yoki CRM uchun `X-API-Kalit` sarlavhasi (serverda
+`FLOT_API_KALIT` muhit o'zgaruvchisi). Kalit faqat `/api/buyurtma...` yo'llarini ochadi.
+
+Sinovlar (`python3 flot_sinovlar.py`, CI da ham): model kalibrlash, dispetcher navbati, batareya, PIN,
+mijoz kelmasa, operator navbati, HTTP API va CRM kaliti, bir kunlik ish.
+
+## Nechta skuter va operator kerak (`python3 flot_sinovlar.py --jadval`, `natijalar_flot.txt`)
+
+10 soatlik ish kuni, 3 xil tasodifiy kun o'rtachasi; "o'z vaqtida" = buyurtmadan 45 daqiqa ichida.
+
+| Buyurtma/soat | Skuter | Operator | O'z vaqtida | O'rtacha | Operator band |
+|---|---|---|---|---|---|
+| 6 | 5 | 1 | 50% | 74 daq | 4% |
+| 6 | 8 | 1 | 96% | 26 daq | 5% |
+| 12 | 15 | 1 | 80% | 37 daq | 9% |
+| 12 | 20 | 1 | 98% | 27 daq | 9% |
+| 24 | 30 | 2 | 98% | 25 daq | 9% |
+| 6 (batareya almashtirish) | 6 | 1 | 90% | 28 daq | 5% |
+| 24 (batareya almashtirish) | 24 | 2 | 98% | 26 daq | 10% |
+
+Xulosalar:
+- Oddiy zaryadlashda har 1 buyurtma/soatga ~1,3-1,7 skuter kerak. Asosiy cheklov zaryadlash: skuterlar
+  vaqtning ~60% idagina band, qolganida omborda zaryadlanadi.
+- Batareyani almashtirish (zaryadlangan batareya bilan ~30 daqiqada) bilan ~1 skuter yetadi, ya'ni skuterlar
+  soni 20-30% kamayadi. Skuter tanlanayotganda olinadigan batareya muhim.
+- Chorrahalarga ruxsat berish uchun operator kam vaqt sarflaydi: 12 buyurtma/soatgacha bitta operator 10%
+  dan kam band. Haqiqatda operator videoni ham kuzatadi, shuning uchun bu pastki chegara.
+
+Cheklovlar: buyurtmalar kun bo'yi bir tekis (tushlik, kechki cho'qqi yo'q); bitta ombor; skuter bitta
+buyurtma oladi; yo'lda qaytayotgan skuterga yangi buyurtma berilmaydi; ob-havo va tirbandlik yo'q.
+CRM tomoni (`isroil096/CRM`, Spring Boot): `/api/deliveries` moduli shu API ga ulanadi (alohida o'zgarish).
+
+# Mijoz Telegram boti (`mijoz_bot.py`, 2026-10-18)
+
+Mijoz buyurtmasini Telegramda kuzatadi va skuter qutisini ochadi. Operator botidan alohida bot:
+@BotFather dan yangi token olib, serverda `MIJOZ_TELEGRAM_TOKEN` ga yoziladi.
+
+1. Buyurtma berilganda flot javobida `kuzatish_havola` bor: `https://t.me/<bot>?start=<id>_<kod>`. Kod
+   tasodifiy sir, shuning uchun havolasiz boshqa odamning buyurtmasini ko'rib yoki ochib bo'lmaydi. CRM bu
+   havolani mijozga yuboradi.
+2. Mijoz havolani bosadi: bot buyurtma holatini ko'rsatadi va keyin o'zgarishlarni o'zi xabar qiladi
+   (skuter yuklanmoqda, yo'lda va taxminan necha daqiqada keladi, xaritadagi joylashuvi).
+3. Skuter yetib kelganda: PIN kodi va [Qutini ochish] tugmasi. Tugmani bosish yoki PIN ni yozish qutini
+   ochadi. 10 daqiqada ochilmasa, bot yuk omborga qaytganini aytadi.
+
+Buyruqlar: `/holat`, `/joy` (skuter qayerda). Sinovlar: `python3 mijoz_bot_sinovlar.py` (soxta Telegram
+API bilan, CI da ham): havola va sir kod, to'liq yo'l, PIN yozish, begona chat, mijoz kelmasa, joylashuv.
