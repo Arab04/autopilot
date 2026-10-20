@@ -1,0 +1,63 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-products
+      author: crm
+      changes:
+        - createTable:
+            tableName: products
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+              - column:
+                  name: name
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: sku
+                  type: VARCHAR(50)
+
+              - column:
+                  name: barcode
+                  type: VARCHAR(50)
+
+              - column:
+                  name: brand
+                  type: VARCHAR(60)
+
+              - column:
+                  name: retail_price
+                  type: NUMERIC(12,2)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: wholesale_price
+                  type: NUMERIC(12,2)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: min_quantity
+                  type: INT
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: active
+                  type: BOOLEAN
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: unit_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+

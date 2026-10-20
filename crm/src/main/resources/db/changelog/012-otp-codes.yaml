@@ -1,0 +1,64 @@
+databaseChangeLog:
+  - changeSet:
+      id: 012-create-otp-codes
+      author: isroil
+      changes:
+        - createTable:
+            tableName: otp_codes
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+              - column:
+                  name: phone
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: purpose
+                  type: VARCHAR(30)
+                  constraints:
+                    nullable: false
+                  # SIGNUP / LOGIN
+
+              - column:
+                  name: code_hash
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: expires_at
+                  type: TIMESTAMP
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: attempts_left
+                  type: INT
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: used
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+
+        - createIndex:
+            tableName: otp_codes
+            indexName: idx_otp_phone_purpose
+            columns:
+              - column: { name: phone }
+              - column: { name: purpose }

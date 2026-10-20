@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: CRM
+  server:
+  port: 12345
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/crm_db
+    username: crm_user
+    password: ${DB_PASSWORD:root}
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/db.changelog-master.yaml
+    default-schema: public
+
+app:
+  jwt:
+    secret: "THIS_IS_DEMO_SECRET_CHANGE_ME_12345678901234567890"
+    expirationMinutes: 1440
+    accessMinutes: 15
+    refreshMinutes: 120
+
+telegram:
+  bot:
+    token: ${TELEGRAM_BOT_TOKEN:}
+    channel-id: -1003627081516
+
+
+# Skuter flotining dispetcheri (Arab04/autopilot). Kalit serverdagi FLOT_API_KALIT bilan bir xil bo'lsin.
+fleet:
+  url: ${FLEET_URL:https://167-86-72-220.sslip.io}
+  api-key: ${FLEET_API_KEY:}
+  sync-seconds: 30

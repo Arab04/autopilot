@@ -1,0 +1,85 @@
+databaseChangeLog:
+  - changeSet:
+      id: 009-settings
+      author: crm
+      changes:
+        - createTable:
+            tableName: settings
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+              - column:
+                  name: company_name
+                  type: VARCHAR(120)
+
+              - column:
+                  name: address
+                  type: VARCHAR(200)
+
+              - column:
+                  name: phone
+                  type: VARCHAR(30)
+
+              - column:
+                  name: inn
+                  type: VARCHAR(30)
+
+              - column:
+                  name: base_currency
+                  type: VARCHAR(10)
+
+              - column:
+                  name: usd_rate
+                  type: DOUBLE
+
+              - column:
+                  name: auto_rate
+                  type: BOOLEAN
+
+              - column:
+                  name: tax_percent
+                  type: DOUBLE
+
+              - column:
+                  name: sms_enabled
+                  type: BOOLEAN
+
+              - column:
+                  name: telegram_enabled
+                  type: BOOLEAN
+
+              - column:
+                  name: remind_days_before
+                  type: INT
+
+              - column:
+                  name: remind_template
+                  type: TEXT
+
+              - column:
+                  name: overdue_template
+                  type: TEXT
+
+        - insert:
+            tableName: settings
+            columns:
+              - column:
+                  name: id
+                  valueNumeric: 1
+
+              - column:
+                  name: company_name
+                  value: "Qurilish CRM"
+
+              - column:
+                  name: base_currency
+                  value: "UZS"
+
+              - column:
+                  name: tax_percent
+                  valueNumeric: 12
