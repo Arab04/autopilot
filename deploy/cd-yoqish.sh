@@ -20,7 +20,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-Environment=OZI=/usr/local/sbin/skuter-avto-yangilash
+Environment=OZI=/usr/local/sbin/skuter-avto-yangilash HOME=/root
 ExecStart=/usr/local/sbin/skuter-avto-yangilash
 TimeoutStartSec=15min
 EOF

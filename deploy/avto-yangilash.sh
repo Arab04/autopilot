@@ -11,6 +11,7 @@
 #
 # Branch: /etc/skuter-operator.env dagi DEPLOY_BRANCH, bo'lmasa serverda hozir turgan branch.
 set -euo pipefail
+export HOME="${HOME:-/root}"   # systemd xizmatida HOME yo'q, git unga muhtoj
 
 DIR="${DIR:-/opt/autopilot}"
 ENVF="${ENVF:-/etc/skuter-operator.env}"
