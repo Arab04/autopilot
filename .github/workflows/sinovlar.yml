@@ -55,3 +55,15 @@ jobs:
           python-version: "3.12"
       - run: python operator_sinovlar.py
         working-directory: sim/world
+  firmware:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: make test && make CC=clang clean test
+        working-directory: firmware/xavfsizlik
+      - run: python sim_sinov.py 100
+        working-directory: firmware/xavfsizlik
