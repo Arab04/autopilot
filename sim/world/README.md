@@ -157,5 +157,178 @@ Sinov (`python3 xarita_sinovlar.py`): sun'iy shaharda (Chirchiq emas) 10 ta taso
 marshrut uzunligi tekshiriladi, keyin har marshrut tasodifiy transport bilan simulyatorda bosib o'tiladi.
 Natija: 10 tadan 10 tasi xavfsiz, 8 tasi o'zi yetdi, 2 tasida operator.
 
-Chirchiq uchun: openstreetmap.org da shahar hududini eksport qilib (`.osm`), `python3 xarita_sinovlar.py --osm chirchiq.osm`.
-Chirchiq OSM'da qanchalik to'liq chizilgani hali tekshirilmagan.
+## Chirchiq xaritasida sinov
+
+    python3 xarita_sinovlar.py --chirchiq 10   # ombordan 10 manzilga, har biri 10 marta (100 ta yetkazish)
+
+Xarita: `xaritalar/chirchiq.osm.gz` (OpenStreetMap, 2026-10-12 da overpass-api.de dan yuklangan,
+41.43-41.53 sh.k., 69.52-69.64 sh.u.; (c) OpenStreetMap hissadorlari, ODbL). Unda 2627 ta yo'l, lekin atigi
+18 ta svetofor belgilangan: haqiqatda ko'proq bo'lishi mumkin, joyida tekshirish kerak.
+
+Ombor va 1-5 manzilni Isroil bergan: ombor Navoiy (Markaziy) bozoriga yetmasdan; manzillar Jismoniy tarbiya
+instituti (Troitsk), O'rmon parki, Chirchiq bozori, 8-kichik nohiya, Oktyabr. 6-10 manzilni Claude tanlagan
+(pedagogika universiteti, shoshilinch yordam markazi, 4-kichik nohiya, Do'stlik mahallasi, Kimyogar sport majmuasi).
+Koordinatalar OSM dagi shu nomli joylardan olingan.
+
+Natija (100 ta yetkazish, 1,3-7,9 km): **to'qnashuv 0**, 58 tasida skuter manzilga o'zi yetdi, 42 tasida
+operator chaqirildi (2026-10-13; avval 45 va 55). Operator chaqiruvining 41 tasi chorrahada: ombordan g'arbga
+boradigan har marshrut svetoforsiz Alisher Navoiy shoh ko'chasini (ajratilgan, 2+2 polosa) kesadi. Svetoforsiz
+katta ko'chalarda 112 marta kutildi: o'rtacha 73 s, mediana 43 s, eng uzoq 425 s. Eng yomon manzil - Shoshilinch
+tibbiy yordam markazi (1/10): u yerga Navoiy ko'chasiga chapga burilib (ikki marta kesib) boriladi. To'liq jadval
+`natijalar_chirchiq.txt`, xarita `natijalar_chirchiq.svg`.
+
+### Katta ko'chada kutish (2026-10-13)
+
+Kutish chegarasi olib tashlansa, Navoiy ko'chasida kutish 2 s dan 27 daqiqagacha bo'ldi (mashinalar oqimi
+bir polosada 0,07-0,17 mashina/s, ya'ni 240-600 mashina/soat; haqiqiy oqim o'lchanmagan). Shuning uchun:
+
+- `otish.kutish_bahosi(b)`: o'tish joyida kutishning taxminiy o'rtacha vaqti xaritadagi oqim, polosalar soni va
+  kenglikdan (Puasson oqimi, Adams formulasi). Simulyatorda o'lchangan o'rtacha bilan mos keladi.
+- Marshrut 6 tagacha variantni solishtiradi: har safar eng uzoq kutiladigan chorrahaga jarima qo'yib qayta
+  qidiradi va "yo'l narxi + 4,5 m x kutish soniyasi" eng kichigini oladi. Masalan, Oktyabrga yo'l endi Navoiy
+  ko'chasini ikki marta (chapga burilib) emas, bir marta to'g'ri kesadi.
+- Xaritaga ko'ra uzoq kutiladigan o'tishda operator 120 s da emas, kutilgan vaqtning 3 baravarida (eng ko'pi
+  10 daqiqa) chaqiriladi: bu kutish oldindan ma'lum, operator uni xaritada ko'rib turadi.
+- Simulyator: mashina va avtobus chorraha / o'tish joyiga 5 m dan yaqin to'xtamaydi (qoida). Avval avtobus
+  chorrahadan 1 m keyin abadiy turib, skuterni chorrahaga kiritmay qo'yardi.
+- O'ngga burilishdan keyin 1-2 m da turgan to'siqni skuter aylanib o'tmay, abadiy kutardi (burilishning oxirgi
+  2 m i endi hisobga olinmaydi).
+
+### 1000 km sinovi (2026-10-14)
+
+    python3 xarita_sinovlar.py --km 1000
+
+"Skuterga tayyor" 1-mezoni: Chirchiqda ombordan 10 manzilga borib-qaytib, jami 1000 km. Natija
+(`natijalar_1000km.txt`): **1001 km, 376 safar, to'qnashuv 0**. 200 safarda skuter o'zi yetdi, 176 tasida operator
+chaqirildi (asosan Navoiy ko'chasida, operator yordami bilan safar shu yerda tugaydi deb hisoblanadi).
+
+Birinchi uchta 1000 km yugurishida 1-3 tadan to'qnashuv chiqdi. Tuzatilganlari:
+- E'tiborsiz haydovchi chorraha oldida keskin tormoz bergan skuterga orqadan urildi: endi chiziqqa yumshoq
+  tormoz (1,2 m/s²) bilan oldinroq sekinlashadi va chiziqda bordyurga yaqinroq (0,55 m) turadi.
+- Chapga ikki bosqichli burilishda ikkinchi o'tish chizig'ida skuter qotib qolardi.
+- To'xtab turgan joyidan qo'zg'alganda yonga keskin burilib, orqa qismi yonidan o'tayotgan velosipedchiga tegdi:
+  endi qo'zg'alishdan oldin orqa va yonini tekshiradi, past tezlikda yonga asta suriladi, chorrahani kesayotganda
+  yonga surilmaydi.
+- Chapga keskin burilishga ichki tomondan (to'siqni aylanib o'tgandan keyin) kirganda skuter bunday radiusda
+  burila olmay bordyurga surildi: endi burilish oldidan ichki tomon cheklanadi (eng kichik radius 2,9 m).
+
+### Haqiqiy xaritada topilgan xatolar (tuzatildi)
+
+Sun'iy shaharda ko'rinmagan, birinchi Chirchiq yugurishida 50 ta yetkazishdan 11 tasida to'qnashuv bo'lgan
+(1-6), haqiqiy ombor bilan yana 100 tadan 1 tasida (7-8):
+
+1. **Ikki tugunli chorraha.** OSM'da ajratilgan yo'l (o'rtasida ajratuvchi bor) ikki yaqin chorraha bo'lib chizilgan
+   (orasi 1-2 m). Skuter birinchisini o'tib, ikkinchisi oldida to'xtay olmay, uning **o'rtasida** to'xtab qolardi.
+   Endi orasi 10 m dan kam o'tishlar bitta keng o'tish deb kesib o'tiladi.
+2. **To'siq chorrahadan keyin.** Chorrahadan 5-10 m keyin mashina yoki avtobus turgan bo'lsa, skuter chorraha
+   ichida to'xtab qolardi (to'xtash masofasi xato hisoblangan). Endi to'siqni aylanishni chorrahadan oldin boshlaydi
+   (velosipedchilar kabi chaproqda kesib o'tadi), yoki orqa bo'sh bo'lmasa chorrahaga kirmay kutadi.
+3. **Yondagi piyoda.** Skuter to'siq orqasida turganda, uning yonidan yo'lga tushgan odamni "orqada" deb hisoblab,
+   joyidan qo'zg'alardi. Endi yonidagi odam ham hisobga olinadi.
+4. **Ko'cha tartibi o'zgarganda** (masalan chorrahadan keyin parkovka boshlansa) skuter orqaga qaramay chapga
+   surilardi. Endi orqadan mashina kelayotgan bo'lsa, u o'tib ketguncha joyida qoladi.
+5. **Marshrut katta ko'chalarni svetoforsiz kesishdan qochadi**: chorrahada kesib o'tiladigan yo'l turiga qarab
+   qo'shimcha narx (primary 200 m, secondary 120 m, svetofor bo'lsa 4 marta kam).
+6. Faqat skuter yura oladigan asosiy tarmoqqa (tranzit yo'llar ajratib qo'ygan kichik bo'laklarga emas) manzil
+   bog'lanadi; aks holda ba'zi manzillarga yo'l topilmasdi.
+7. **Sekin velosipedchini cheksiz quvish.** Skuter oldidagi sekin velosipedchini aylanib o'tishni har safar
+   cho'zib, 100 m dan ko'p polosada yurdi va chapga burilish chorrahasiga yon tomonda kirib, ikkinchi o'tish
+   ichida to'xtab qoldi. Endi aylanish faqat turgan (yoki allaqachon yonidagi) narsa uchun cho'ziladi; chapga
+   ikki bosqichli burilishdan oldin yon tomonda turib chorrahaga kirilmaydi; keyingi o'tish yaqin bo'lsa
+   hozirgisini uning chizig'ida to'xtay oladigan tezlikda o'tadi.
+8. Aylanishdan **o'ngga qaytishda** ham orqaga qaraydi (o'ng tomondan kelayotgan velosipedchi).
+
+Simulyatorning o'zida ham tuzatildi: chorrahadagi ko'ndalang oqim ko'cha turiga qarab (hovli ko'chasida kam, katta
+ko'chada ko'p), 900 s dan uzun marshrutlarda ham mashinalar bor; velosipedchi va mashinalar avtobus orqasida
+abadiy tiqilib qolmaydi (chapdan aylanib o'tadi). 3-bosqich sinovi shu o'zgarishlardan keyin ham o'tadi
+(150 ko'cha: to'qnashuv 0, operator 12/150; avval 17/150).
+
+### Keyingi qadamlar
+
+- Alisher Navoiy ko'chasi: ombor yonida mashinalar oqimini joyida sanash (yetkazish soatlarida 5 daqiqa, har
+  polosada) va eng yaqin svetoforni aniqlash. Oqim bir polosada 0,05 mashina/s (180/soat) dan kam bo'lsa skuter
+  o'zi o'tadi; ko'p bo'lsa svetoforli joydan o'tish, operator tasdig'i yoki omborni g'arbiy tomonga ko'chirish.
+- Chirchiqdagi svetoforlarni joyida (yoki videodan) xaritaga qo'shish.
+
+
+# B bosqich: operator paneli (`operator_panel.py`, 2026-10-15)
+
+Operator virtual skuterni brauzerdan kuzatadi va masofadan boshqaradi. Simulyator Chirchiq xaritasida
+ombordan tanlangan manzilga real vaqtda (yoki 2x-10x tez) yuradi.
+
+    python3 operator_panel.py              # brauzerda http://localhost:8765
+    python3 operator_panel.py --manzil 3 --tezlik 2
+
+![Operator paneli](operator_panel.png)
+
+Panelda:
+- yuqoridan ko'rinish (skuter yo'nalishi doim tepaga): yo'l, polosalar, velosiped yo'lagi, mashinalar,
+  chorrahadagi ko'ndalang mashinalar, odamlar, so'ralayotgan chorraha sariq ramkada;
+- tezlik, holat (masalan "Operator ruxsatini kutmoqda"), bordyurdan masofa, svetofor, to'qnashuvlar soni;
+- kichik xarita: marshrut va skuter qayerda; hodisalar jurnali; yangi so'rov kelganda ovozli signal.
+
+Operator nima qila oladi (tugma yoki klaviatura):
+| Amal | Tugma |
+|---|---|
+| Chorrahadan o'tishga ruxsat / rad | Y / N |
+| Boshqaruvni olish (qo'lda) / avtonomga qaytarish | M / Enter |
+| Qo'lda: tezroq / sekinroq / to'xta | W yoki ↑ / S yoki ↓ / X |
+| Qo'lda: bordyurdan uzoqroq / yaqinroq | A yoki ← / D yoki → |
+| Favqulodda to'xtatish / davom | Probel |
+| Simulyator: pauza, tezligi, yangi safar | P, yuqoridagi menyular |
+
+Xavfsizlik qoidalari (skuter dasturida, operator ularni o'chira olmaydi):
+- Chorrahaga ruxsat berilsa ham skuter mashinalarni o'zi yana tekshiradi; mashina ko'rsa o'tmaydi va
+  jurnalga "Skuter o'tmadi" yoziladi.
+- Skuter ruxsatni faqat operator javob bergunicha (2 s) ham bo'sh joy qoladigan paytda so'raydi. Avval
+  zich oqimda so'rov ketidan so'rov kelardi (sinovda 59 ta, 53 tasi foydasiz); endi 9 ta.
+- Qo'lda boshqarishda operator faqat tezlik va bordyurdan masofani beradi, rulni skuter o'zi buradi.
+  Burilishdagi tezlik cheklovi, ultratovush va kamera himoyasi ishlaydi: buyurilgan yo'lakda oldinda
+  to'siq bo'lsa, 1,5 m oldin to'xtaydi (faqat ultratovush 4 m ko'radi, 20 km/soatda bu yetmaydi).
+- Yordam so'rovi endi safarni tugatmaydi: skuter joyida kutadi, operator boshqaruvni oladi yoki avtonom
+  davom ettiradi. Qo'lda chorrahaga kirib avtonomga qaytarilsa, skuter yo'l o'rtasida qayta ruxsat
+  so'ramaydi, o'tib ketadi.
+
+Sinovlar (`python3 operator_sinovlar.py`, CI da ham): dastur operator rolini o'ynaydi.
+1. ruxsat beradi, 1b. ko'ndalang oqimda doim ruxsat beradi (skuter o'zi tekshiradi, to'qnashuv yo'q),
+2. ikki marta rad etadi, 3. qo'lda boshqarib qaytaradi, 4. favqulodda to'xtatadi, 5. so'rovga javob
+bermaydi, yordam so'rovida boshqaruvni olib chorrahadan o'tkazadi, 6. to'xtagan mashinaga qarab
+20 km/soatda boshqaradi (skuter to'xtaydi), 7. HTTP server.
+
+Cheklovlar: panel HTTPS siz (IP manzil, domen yo'q), parol HTTP Basic bilan;
+video o'rniga simulyatordan olingan sxema ko'rsatiladi; aloqa kechikishi va uzilishi hali modellashtirilmagan.
+Haqiqiy skuterda shu interfeys (so'rov, ruxsat, qo'lda buyruq, to'xtatish) mobil aloqa orqali ishlaydi.
+
+## Serverga joylash va Telegram bot (2026-10-15)
+
+Serverda (Ubuntu/Debian, root) bitta buyruq: kodni `/opt/autopilot` ga oladi, `skuter-operator` systemd
+xizmatini yoqadi (`--davomli`: safarlar ketma-ket, to'xtovsiz), tasodifiy parol yaratadi va manzilni chiqaradi.
+
+    curl -fsSL https://raw.githubusercontent.com/Arab04/autopilot/claude/project-thread-gxkale/deploy/ornat.sh | bash
+    # Telegram bot bilan:
+    curl -fsSL .../deploy/ornat.sh | TELEGRAM_TOKEN=123:ABC OPERATOR_CHATLAR=111,222 bash
+
+Panelga kirish: login `operator`, parol `/etc/skuter-operator.env` da. Tarmoqqa ochilganda parolsiz ishlamaydi.
+
+Telegram bot (`operator_bot.py`): skuter chorrahada ruxsat so'rasa yoki qolib ketsa, ro'yxatdagi
+operatorlarga xabar yuboradi ([Ruxsat] [Rad] yoki [Avtonom davom] [To'xtatish] tugmalari, "Panelni ochish").
+Birinchi javob ishlaydi, qolganlarda tugmalar olib tashlanadi; eskirgan so'rovga bosilgan tugma hech narsa
+qilmaydi; ro'yxatda yo'q odam boshqara olmaydi. Buyruqlar: `/start` (chat raqamini aytadi), `/holat`,
+`/toxtat`, `/davom`.
+
+
+## Avtomatik joylash, CI/CD (2026-10-21)
+
+Kod GitHub ga push qilinsa: GitHub Actions sinovlari (CI) ishlaydi, hammasi yashil bo'lsa server 2 daqiqa
+ichida yangi versiyani o'zi oladi va panelni qayta yoqadi. Qizil bo'lsa joylamaydi, server eski versiyada qoladi.
+Yangi versiyada panel javob bermasa, avvalgisiga o'zi qaytadi. Telegram bot yoqilgan bo'lsa, har joylash
+haqida operatorlarga xabar keladi.
+
+Server GitHub ga o'zi murojaat qiladi (har 2 daqiqada), shuning uchun server paroli yoki SSH kaliti GitHub da
+saqlanmaydi. Yoqish (serverda root sifatida bir marta):
+
+    curl -fsSL https://raw.githubusercontent.com/Arab04/autopilot/claude/project-thread-gxkale/deploy/cd-yoqish.sh | bash
+
+Kuzatish: `journalctl -u skuter-cd -f`. Qaysi branch joylanadi: serverda hozir turgan branch yoki
+`/etc/skuter-operator.env` dagi `DEPLOY_BRANCH=` (PR lar birlashtirilgach `DEPLOY_BRANCH=main`).
+O'chirish: `systemctl disable --now skuter-cd.timer`. Skriptlar: `deploy/cd-yoqish.sh`, `deploy/avto-yangilash.sh`.

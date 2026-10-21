@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from autopilot.haydash import KMH, boshqaruv_burchagi  # noqa: E402
+from autopilot.haydash import KMH, Buyruq, boshqaruv_burchagi  # noqa: E402
 from autopilot.marshrut import Marshrut, Bolak  # noqa: E402
 from autopilot.otish import Mashina as KorilganMashina  # noqa: E402
 from autopilot.yol import YolAvtopilot, YolObyekt, YolSozlamalari, yol_tartibi  # noqa: E402
@@ -146,7 +146,41 @@ def _band(o):
     return o.d - o.eni / 2, o.d + o.eni / 2
 
 
-def ishga_tushir(sc: YolSsenariy, c: YolSozlamalari = None):
+class Operator:
+    """Masofaviy operator (operator paneli yoki sinovdagi dastur) uchun interfeys.
+
+    ishga_tushir(sc, operator=...) berilsa, simulyator o'zining "soxta operatori" o'rniga shuni ishlatadi:
+    chorrahadan o'tishga ruxsat so'raydi, yordam kerak bo'lsa safarni to'xtatmaydi, operator skuterni
+    qo'lda boshqarishi va favqulodda to'xtatishi mumkin. Operator buyrug'i ham skuterning xavfsizlik
+    qatlamidan (ultratovush, kamera) o'tadi; chorrahaga ruxsat berilsa ham skuter o'zi yana tekshiradi.
+    """
+
+    def sorov(self, t, turi, malumot):
+        """turi: "otish" (chorrahadan o'tishga ruxsat), "yordam" (skuter qolib ketdi), "yopildi" (malumot["sorov"] -
+        qaysi so'rov),
+        "skuter_rad" (ruxsat berildi, lekin skuter o'zi mashina ko'rib o'tmadi)."""
+
+    def otish_javobi(self, t):
+        """None (hali javob yo'q), True (tasdiq) yoki False (rad)."""
+        return None
+
+    def boshqaruv(self, t):
+        """None - avtonom; (tezlik m/s, bordyurdan masofa m) - operator qo'lda boshqaryapti."""
+        return None
+
+    def yordam_yopildimi(self, t):
+        """Operator "avtonom davom et" bosdimi (bir marta True qaytaradi)."""
+        return False
+
+    def toxtatildimi(self, t):
+        """Favqulodda to'xtatish tugmasi bosilganmi."""
+        return False
+
+    def kuzat(self, t, holat):
+        """Har 0,1 s da skuter va atrofi (panelda ko'rsatish uchun). Real vaqtda yurgizish shu yerda."""
+
+
+def ishga_tushir(sc: YolSsenariy, c: YolSozlamalari = None, operator: Operator = None):
     c = c or YolSozlamalari()
     rnd = random.Random(sc.urug)
     m = sc.marshrut
@@ -167,7 +201,7 @@ def ishga_tushir(sc: YolSsenariy, c: YolSozlamalari = None):
     s, d, psi, v = 0.0, yol_tartibi(y0, c)[1], 0.0, 0.0
     t = 0.0
     qadam = 0
-    buyruq = None
+    buyruq = yakuniy = None
     mash_toq = odam_toq = velo_toq = tosiq_toq = kes_toq = favq = chetga = eshik = aylanish = 0
     yaqin_otish = math.inf
     orqa_kutish = 0.0
@@ -179,6 +213,7 @@ def ishga_tushir(sc: YolSsenariy, c: YolSozlamalari = None):
     iz = {k: [] for k in ("t", "s", "d", "v", "holat")}
     op_vaqt, op_javob = None, None
     yordam = False
+    yordam_ochiq, yordam_s, qolda, sorov_b, toxtatildi = False, 0.0, None, None, False
 
     def yangi_mashina(s0, p, v0):
         nonlocal keyingi_id
@@ -201,9 +236,28 @@ def ishga_tushir(sc: YolSsenariy, c: YolSozlamalari = None):
                     transport.append(yangi_mashina(x, p, v0))
 
     while t < sc.vaqt_chegarasi and s < m.uzunlik:
-        if ap.yordam_kerakmi(t, s):
+        if operator is not None:
+            oldingi_qolda, qolda = qolda, operator.boshqaruv(t)
+            if oldingi_qolda is not None and qolda is None:
+                # Avtonomga qaytish: operator qo'lda kirgan chorrahalar o'tilgan deb hisoblanadi (yo'l o'rtasida
+                # qayta ruxsat so'rab to'xtab qolmaslik uchun), eski so'rov bekor.
+                for b_ in kocha.otishlar:
+                    if s + c.skuter_yarim_uzunlik > b_.boshi - 0.1:
+                        ap.otish.ruxsat[b_.boshi] = True
+                ap.otish.sorov = None
+            toxtatildi = operator.toxtatildimi(t)
+            if qolda is not None or toxtatildi:
+                ap.nazorat.boshlanish = None  # operator boshqarayotganda "qolib ketdi" hisoblanmaydi
+            if yordam_ochiq and (qolda is not None or operator.yordam_yopildimi(t) or s > yordam_s + 3.0):
+                yordam_ochiq = False
+                ap.nazorat.boshlanish = None
+                operator.sorov(t, "yopildi", {"s": s, "sorov": "yordam"})
+        if not yordam_ochiq and qolda is None and not toxtatildi and ap.yordam_kerakmi(t, s):
             yordam = True
-            break
+            if operator is None:
+                break
+            yordam_ochiq, yordam_s = True, s
+            operator.sorov(t, "yordam", {"s": s, "sabab": ap.otish_holati or ap.rej.rejim})
         yol = kocha.yol(s)
         chet, asosiy, _, polosa_boshi = yol_tartibi(yol, c)
         # --- Yangi mashinalar orqadan ---
@@ -259,10 +313,25 @@ def ishga_tushir(sc: YolSsenariy, c: YolSozlamalari = None):
             if yaqin_otish_b is not None and ishlaydi:
                 km = mashina_kamera(kesuvchi, oi, s, yaqin_otish_b, t, rnd, True) if s > yaqin_otish_b.boshi - 15 else []
             javob = None
-            if op_vaqt is not None and t >= op_vaqt:
+            if operator is not None:
+                if ap.operator_sorovi:
+                    javob = operator.otish_javobi(t)
+            elif op_vaqt is not None and t >= op_vaqt:
                 javob, op_vaqt = op_javob, None
             buyruq = ap.rejalash(t, s, d, v, aniq, km, svet, javob)
-            if ap.operator_sorovi and op_vaqt is None and javob is None:
+            if operator is not None:
+                if javob and ap.otish_holati != "otish":
+                    operator.sorov(t, "skuter_rad", {"s": s})  # ruxsat berildi, lekin skuter mashina ko'rdi
+                if ap.operator_sorovi and sorov_b != ap.otish.sorov:
+                    sorov_b = ap.otish.sorov
+                    b_ = yaqin_otish_b
+                    operator.sorov(t, "otish", {"s": s, "otish": sorov_b, "svetofor": bool(b_ and b_.svetofor),
+                                                "polosalar": b_.yollar if b_ else 0,
+                                                "kenglik": round(b_.uzunlik, 1) if b_ else 0})
+                elif not ap.operator_sorovi and sorov_b is not None:
+                    sorov_b = None
+                    operator.sorov(t, "yopildi", {"s": s, "sorov": "otish"})
+            elif ap.operator_sorovi and op_vaqt is None and javob is None:
                 op_vaqt = t + OPERATOR_KECHIKISHI
                 haqiqiy = [KorilganMashina(x.polosa, x.x, x.vx) for x in kesuvchi if x.otish == oi and t >= x.paydo]
                 kelajak = [KorilganMashina(x.polosa, x.x + x.vx * OPERATOR_KECHIKISHI, x.vx) for x in haqiqiy]
@@ -271,8 +340,17 @@ def ishga_tushir(sc: YolSsenariy, c: YolSozlamalari = None):
             if ap.rej.rejim == "aylanib" and oldingi_rejim != "aylanib":
                 aylanish += 1
             oldingi_rejim = ap.rej.rejim
+        if qolda is not None:
+            # Operator qo'lda: tezlik va yon holat buyrug'i, egrilikka mos cheklov bilan
+            v_q = min(max(0.0, qolda[0]), c.max_tezlik,
+                      m.tezlik_chegarasi(s, c.max_tezlik, c.yon_tezlanish, c.tormoz, oldinga=15.0))
+            d_q = max(c.skuter_r + 0.1, qolda[1])
+            v_q = min(v_q, ap.qolda_tezlik_chegarasi(s, d, d_q))
+            buyruq = Buyruq(v_q, d_q, c.tormoz, "operator")
         uz = _ultratovush(transport, piyodalar, s, d, psi, c)
         yakuniy = ap.xavfsizlik(buyruq, v, uz, t)
+        if toxtatildi:
+            yakuniy = Buyruq(0.0, yakuniy.d_maqsad, c.favqulodda_tormoz, "operator_toxtatdi")
         if yakuniy.holat != oldingi_holat:
             if yakuniy.holat == "favqulodda":
                 favq += 1
@@ -361,11 +439,43 @@ def ishga_tushir(sc: YolSsenariy, c: YolSozlamalari = None):
         if qadam % 4 == 0:
             for kk, val in zip(iz, (t, s, d, v, yakuniy.holat)):
                 iz[kk].append(val)
+        if operator is not None and qadam % 2 == 0:
+            operator.kuzat(t, _surat(t, s, d, psi, v, yakuniy, ap, kocha, transport, piyodalar, kesuvchi, sc,
+                                     yaqin_otish_b, svet, qolda, yordam_ochiq, toxtatildi,
+                                     mash_toq + odam_toq + velo_toq + tosiq_toq + kes_toq))
         t += DT
         qadam += 1
+    if operator is not None:
+        operator.kuzat(t, dict(_surat(t, s, d, psi, v, yakuniy, ap, kocha, transport, piyodalar, kesuvchi, sc,
+                                      yaqin_otish_b, svet, qolda, yordam_ochiq, toxtatildi,
+                                      mash_toq + odam_toq + velo_toq + tosiq_toq + kes_toq),
+                           tugadi=True, yetib_keldi=s >= m.uzunlik))
     return YolNatija(sc.nomi, s >= m.uzunlik, t, mash_toq, odam_toq, velo_toq, tosiq_toq, kes_toq, yaqin_otish,
                      eshik, chetga, favq, yordam, ap.otish.operator_sorovlari, (s / t * 3.6) if t > 0 else 0.0,
                      aylanish, orqa_kutish, iz)
+
+
+def _surat(t, s, d, psi, v, yakuniy, ap, kocha, transport, piyodalar, kesuvchi, sc, yaqin_b, svet, qolda,
+           yordam_ochiq, toxtatildi, toqnashuv):
+    """Operator paneli uchun hozirgi holat (marshrut koordinatalarida: s - yo'l bo'ylab, d - bordyurdan)."""
+    tr = [(x.turi, round(x.s, 2), round(x.d, 2), x.uzunlik, x.eni, round(x.v, 1)) for x in transport
+          if not x.yoq and t >= x.paydo and -70 < x.s - s < 90]
+    od = [(round(p.s, 2), round(p.d, 2)) for p in piyodalar if not p.yoq and -40 < p.s - s < 60 and p.d > -3]
+    ke = []
+    for x in kesuvchi:
+        if t < x.paydo or not 0 <= x.otish < len(kocha.otishlar):
+            continue
+        b = kocha.otishlar[x.otish]
+        if not -60 < b.boshi - s < 90 or abs(x.x) > 70:
+            continue
+        markaz = b.boshi + (x.polosa + 0.5) * b.yol_kengligi
+        ke.append((round(markaz, 2), round(yol_tartibi(kocha.yol(b.boshi), ap.c)[1] + x.x, 2), round(x.vx, 1)))
+    return {"t": round(t, 2), "s": round(s, 2), "d": round(d, 3), "psi": round(psi, 3), "v": round(v, 2),
+            "holat": yakuniy.holat if yakuniy else "", "rejim": ap.rej.rejim, "otish_holati": ap.otish_holati,
+            "qolda": qolda is not None, "yordam": yordam_ochiq, "toxtatildi": toxtatildi,
+            "otish_sorovi": ap.otish.sorov, "svetofor": list(svet) if svet else None,
+            "otish": [yaqin_b.boshi, yaqin_b.oxiri] if yaqin_b is not None else None,
+            "toqnashuv": toqnashuv, "transport": tr, "odamlar": od, "kesuvchi": ke}
 
 
 def _parkovka_ortida(p, transport):
@@ -433,22 +543,31 @@ def _transport_qadam(transport, piyodalar, kocha, sc, s_sk, d_sk, v_sk, t, rnd):
         nomzodlar = harakat + [skuter]
         p_lo, p_hi = markaz - x.eni / 2 - 0.3, markaz + x.eni / 2 + 0.3
         aylanish, ayl_oraliq = None, 50.0
+        quvish = []
         for o in nomzodlar:
             if o is x or o.yoq or not (o.turi in ("skuter", "velosiped") or o.v < 0.5):
                 continue
             oraliq = (o.s - o.uzunlik / 2) - (x.s + x.uzunlik / 2)
             olo, ohi = _band(o)
             # Quvib o'tgandan keyin ham uning oldiga 5 m chiqmaguncha polosaga qaytmaydi
-            if -o.uzunlik - x.uzunlik - 5.0 < oraliq < ayl_oraliq and olo < p_hi and ohi > p_lo:
+            if -o.uzunlik - x.uzunlik - 5.0 < oraliq < 50.0 and olo < p_hi and ohi > p_lo:
                 if o is skuter and x.etiborsiz:
                     continue  # haydovchi skuterni ko'rmayapti
-                aylanish, ayl_oraliq = o, oraliq
+                quvish.append((oraliq, o))
+                if oraliq < ayl_oraliq:
+                    aylanish, ayl_oraliq = o, oraliq
         if aylanish is not None and maqsad == markaz:
-            zaxira = 1.2 if aylanish.turi in ("skuter", "velosiped") else 0.5
-            kerak = aylanish.d + aylanish.eni / 2 + zaxira + x.eni / 2
             chegara = markaz + (y.yol_kengligi - x.eni) / 2 + 0.4
             if y.yollar == 1:
                 chegara += 2.5  # bir polosali yo'lda qarama-qarshi polosaga chiqib quvib o'tadi
+            zaxira = 1.2 if aylanish.turi in ("skuter", "velosiped") else 0.5
+            kerak = aylanish.d + aylanish.eni / 2 + zaxira + x.eni / 2
+            # Ketma-ket turganlarni (masalan avtobus orqasidagi velosipedchi) bir yo'la, eng kengiga qarab aylanadi
+            for oraliq, o in quvish:
+                zaxira = 1.2 if o.turi in ("skuter", "velosiped") else 0.5
+                k = o.d + o.eni / 2 + zaxira + x.eni / 2
+                if oraliq < ayl_oraliq + 15.0 and kerak < k <= chegara:
+                    kerak = k
             if kerak <= chegara:
                 maqsad = max(maqsad, kerak)
             elif x.polosa + 1 < y.yollar and _polosa_bosh(harakat, x, x.polosa + 1):
@@ -536,6 +655,26 @@ def _velosiped(x, harakat, skuter, piyodalar, y, c):
     a = _idm(x.v, x.v0, lider_oraliq, x.v - lider_v) if lider_oraliq < math.inf else _idm(x.v, x.v0, 1e9, 0)
     x.v = max(0.0, x.v + max(-5.0, min(1.0, a)) * DT)
     x.s += x.v * DT
+    # Oldida to'xtab turgan mashina/to'siq bo'lsa, chapdan aylanib o'tadi, keyin chetga qaytadi
+    if not hasattr(x, "d0"):
+        x.d0 = x.d
+    maqsad = x.d0
+    for o in harakat:
+        if o.turi in ("toxtagan", "tosiq") and -o.uzunlik / 2 - 2.0 < o.s - x.s < o.uzunlik / 2 + 10.0:
+            olo, ohi = _band(o)
+            if olo < x.d0 + x.eni / 2 + 0.3:
+                maqsad = max(maqsad, ohi + x.eni / 2 + 0.5)
+    if (maqsad > x.d + 0.05 and skuter.v > 0.5 and -10.0 < skuter.s - x.s < 3.0
+            and skuter.d - skuter.eni / 2 < maqsad + x.eni / 2 + 0.5):
+        maqsad = x.d  # orqa/yonda skuter kelyapti: chapga chiqmay, uni o'tkazib yuboradi
+    for o in harakat + [skuter]:
+        # Yonidagi narsaga (turgan skuter, mashina) yon tomondan urilmaydi
+        if o is not x and not o.yoq and abs(o.s - x.s) < (o.uzunlik + x.uzunlik) / 2 + 0.5 and o.d > x.d:
+            maqsad = min(maqsad, max(x.d, o.d - o.eni / 2 - x.eni / 2 - 0.3))
+    yon = 0.4 * DT
+    x.d += max(-yon, min(yon, maqsad - x.d))
+    if x.v < 0.5 and maqsad > x.d + 0.05:
+        x.v = 0.5  # sekin yurib chetga chiqadi
 
 
 def _piyoda_qadam(piyodalar, transport, kocha, s_sk, d_sk, v_sk, t):
@@ -578,6 +717,17 @@ def _kesuvchi_qadam(kesuvchi, otishlar, sc, s_sk, v_sk, t):
         if t < mm.paydo:
             continue
         b = otishlar[mm.otish]
+        if b.oxiri < s_sk - 20:
+            continue  # o'tib ketgan chorraha: endi ahamiyati yo'q
+        oxirgi = getattr(mm, "_t", None)
+        if b.boshi - s_sk > 80:
+            # Uzoqdagi chorraha: skuter yo'q, mashinalar to'g'ri yuradi. Yaqinlashganda bir yo'la suramiz (tezroq).
+            if oxirgi is None:
+                mm._t = max(mm.paydo, t - DT)
+            continue
+        if oxirgi is not None:
+            mm.x += mm.vx * (t - DT - oxirgi)
+            mm._t = None
         if b.svetofor:
             toxtash = svetofor_holati(sc, t, mm.otish)[0] and not mm.qizilda_otadi  # biz uchun yashil
         else:
@@ -651,11 +801,16 @@ def kocha_toldir(marshrut, rnd, nomi, rejim="yarim", kamera_xato=False, urug=0):
                 x += rnd.uniform(5.5, 9.0)
                 continue
             r = rnd.random()
+            # Qoidaga ko'ra chorraha / o'tish joyiga 5 m dan yaqin to'xtash mumkin emas
+            yarim = 6.0 if 0.25 <= r < 0.33 else 2.25
+            x_toxtash = max(x, b.boshi + 5.0 + yarim)
+            if r < 0.33 and x_toxtash + yarim > b.oxiri - 5.0:
+                r = 0.4  # bu yerda to'xtab bo'lmaydi: o'rniga kichik to'siq
             if r < 0.25:
-                transport.append(Transport("toxtagan", x, b.velo + 1.0 if b.velo else 1.0, uzunlik=4.5, eni=1.8,
+                transport.append(Transport("toxtagan", x_toxtash, b.velo + 1.0 if b.velo else 1.0, uzunlik=4.5, eni=1.8,
                                            polosa=-1, id=keyingi))
             elif r < 0.33:
-                transport.append(Transport("avtobus", x, b.velo + 1.35, 0.0, 0.0, 12.0, 2.5, -1, id=keyingi))
+                transport.append(Transport("avtobus", x_toxtash, b.velo + 1.35, 0.0, 0.0, 12.0, 2.5, -1, id=keyingi))
                 transport[-1].turi = "toxtagan"
             elif r < 0.55:
                 transport.append(Transport("tosiq", x, b.velo / 2 + rnd.uniform(0.3, 1.0) if b.velo else rnd.uniform(0.4, 1.2),
@@ -671,8 +826,11 @@ def kocha_toldir(marshrut, rnd, nomi, rejim="yarim", kamera_xato=False, urug=0):
             ps = rnd.uniform(b.boshi + 30, b.oxiri - 10)
             piyodalar.append(Piyoda(ps, ps - rnd.uniform(8, 40), vd=rnd.uniform(1.1, 1.6), etiborli=rnd.random() < 0.75))
     kesuvchi = []
+    vaqt_chegarasi = max(900, marshrut.uzunlik)
     for i, b in enumerate(marshrut.otishlar()):
-        kesuvchi += mashina_oqimi(rnd, i, b.yollar, rnd.uniform(0.04, 0.16) / b.yollar, 900,
+        # Xaritadan oqim ma'lum bo'lsa (ko'cha turi bo'yicha), shu atrofida; aks holda katta ko'chadek
+        intensivlik = b.oqim * rnd.uniform(0.6, 1.5) if b.oqim > 0 else rnd.uniform(0.04, 0.16) / b.yollar
+        kesuvchi += mashina_oqimi(rnd, i, b.yollar, intensivlik, vaqt_chegarasi,
                                   qizilda_ehtimol=0.03 if b.svetofor else 0.0, yol_berish=0.0 if b.svetofor else 0.3)
     kam = []
     if kamera_xato:
@@ -680,4 +838,4 @@ def kocha_toldir(marshrut, rnd, nomi, rejim="yarim", kamera_xato=False, urug=0):
         kam = [(a, a + rnd.uniform(0.5, 3))]
     return YolSsenariy(nomi, marshrut, transport, piyodalar, oqim=rnd.uniform(0.03, 0.15),
                        kesuvchi=kesuvchi, svetofor_siljish=[rnd.uniform(0, 50) for _ in marshrut.otishlar()],
-                       kamera_ochadi=kam, vaqt_chegarasi=max(900, marshrut.uzunlik), rejim=rejim, urug=urug)
+                       kamera_ochadi=kam, vaqt_chegarasi=vaqt_chegarasi, rejim=rejim, urug=urug)

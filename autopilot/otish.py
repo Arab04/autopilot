@@ -38,10 +38,38 @@ class OtishSozlamalari:
     svetofor_zaxira: float = 3.0       # yashil tugashiga kamida shuncha vaqt qolsin (s)
     chiziqdan: float = 0.6             # o'tish joyi boshidan oldin to'xtash (m)
     operator_qayta: float = 3.0        # operator rad etsa, qayta so'rashdan oldin kutish (s)
+    operator_kechikishi: float = 2.0   # operator javob bergunicha o'tadigan vaqt: shu vaqtdan keyin ham bo'sh joy
+                                       # qolsagina so'raymiz (aks holda ruxsat kelganda joy yopilgan bo'ladi)
     skuter_old: float = 0.65           # skuter markazidan old chetigacha (m)
     skuter_orqa: float = 0.65
     min_tezlik: float = 0.8            # yo'lni bundan sekin kesib o'tmaymiz (m/s)
     toxtamasdan: bool = False          # yo'lda: svetofor yashil va xavfsiz bo'lsa chiziqda to'xtamay o'tadi
+
+
+SVETOFOR_KUTISH = 30.0   # svetoforda o'rtacha kutish (s)
+
+
+def kutish_bahosi(b: Bolak, oc: OtishSozlamalari = None):
+    """O'tish joyida bo'sh joy kutishning taxminiy o'rtacha vaqti (s), xaritadagi oqimdan.
+
+    Mashinalar har polosada Puasson oqimi (b.oqim mashina/s) deb olinadi. Skuter chiziqdan qo'zg'alib i-polosadan
+    chiqib ulgurguncha (T_i + zaxira) shu polosaga mashina kelmasligi kerak: P = exp(-D), D = sum(oqim * T_i).
+    O'rtacha kutish (Adams formulasi): (1/P - 1 - D) / jami_oqim. Svetoforda - o'rtacha qizil chiroq vaqti.
+    Simulyatorda o'lchangan kutishga yaqin; oqim kun davomida o'zgarsa, haqiqiy o'rtacha kattaroq bo'ladi.
+    """
+    oc = oc or OtishSozlamalari()
+    if b.svetofor:
+        return SVETOFOR_KUTISH
+    if b.oqim <= 0 or b.yollar <= 0:
+        return 0.0
+    v, a = oc.otish_tezligi, oc.tezlanish
+    x_tez = v * v / (2 * a)
+    daraja = 0.0
+    for p in range(b.yollar):
+        x = (p + 1) * b.yol_kengligi + oc.skuter_orqa
+        t = math.sqrt(2 * x / a) if x <= x_tez else v / a + (x - x_tez) / v
+        daraja += b.oqim * (t + oc.bufer + 0.5)
+    return (math.exp(min(daraja, 50.0)) - 1.0 - daraja) / (b.oqim * b.yollar)
 
 
 class YolOtishBoshqaruvi:
@@ -105,7 +133,12 @@ class YolOtishBoshqaruvi:
         """
         oc = self.oc
         self.v_otish = min(oc.otish_tezligi, yol_tezligi)
-        b = next((b for b in marshrut.otishlar() if s - oc.skuter_orqa < b.oxiri + 0.5 and b.boshi - s < 10), None)
+        yaqin = [b for b in marshrut.otishlar() if s - oc.skuter_orqa < b.oxiri + 0.5 and b.boshi - s < 10]
+        b = yaqin[0] if yaqin else None
+        # Chapga ikki bosqichli burilish: birinchisini o'tib, ikkinchisining chizig'iga yetdik - endi u hal qiladi
+        if (b is not None and self.ruxsat.get(b.boshi) and len(yaqin) > 1
+                and s >= yaqin[1].boshi - oc.chiziqdan - oc.skuter_old - 0.4):
+            b = yaqin[1]
         if b is None:
             return math.inf, None
         if self.ruxsat.get(b.boshi):
@@ -143,6 +176,9 @@ class YolOtishBoshqaruvi:
             return 0.0, "bosh_joy_kutish"
         if self.rejim == "yarim" and not b.svetofor:
             if t - self.rad_vaqti < oc.operator_qayta:
+                return 0.0, "bosh_joy_kutish"
+            kelajak = [Mashina(m.polosa, m.x + m.vx * oc.operator_kechikishi, m.vx) for m in mashinalar]
+            if not self.bosh_joy_bor(b, s, v, kelajak):
                 return 0.0, "bosh_joy_kutish"
             self.sorov = b.boshi
             self.operator_sorovlari += 1
