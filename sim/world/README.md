@@ -316,3 +316,19 @@ Birinchi javob ishlaydi, qolganlarda tugmalar olib tashlanadi; eskirgan so'rovga
 qilmaydi; ro'yxatda yo'q odam boshqara olmaydi. Buyruqlar: `/start` (chat raqamini aytadi), `/holat`,
 `/toxtat`, `/davom`.
 
+
+## Avtomatik joylash, CI/CD (2026-10-21)
+
+Kod GitHub ga push qilinsa: GitHub Actions sinovlari (CI) ishlaydi, hammasi yashil bo'lsa server 2 daqiqa
+ichida yangi versiyani o'zi oladi va panelni qayta yoqadi. Qizil bo'lsa joylamaydi, server eski versiyada qoladi.
+Yangi versiyada panel javob bermasa, avvalgisiga o'zi qaytadi. Telegram bot yoqilgan bo'lsa, har joylash
+haqida operatorlarga xabar keladi.
+
+Server GitHub ga o'zi murojaat qiladi (har 2 daqiqada), shuning uchun server paroli yoki SSH kaliti GitHub da
+saqlanmaydi. Yoqish (serverda root sifatida bir marta):
+
+    curl -fsSL https://raw.githubusercontent.com/Arab04/autopilot/claude/project-thread-gxkale/deploy/cd-yoqish.sh | bash
+
+Kuzatish: `journalctl -u skuter-cd -f`. Qaysi branch joylanadi: serverda hozir turgan branch yoki
+`/etc/skuter-operator.env` dagi `DEPLOY_BRANCH=` (PR lar birlashtirilgach `DEPLOY_BRANCH=main`).
+O'chirish: `systemctl disable --now skuter-cd.timer`. Skriptlar: `deploy/cd-yoqish.sh`, `deploy/avto-yangilash.sh`.
