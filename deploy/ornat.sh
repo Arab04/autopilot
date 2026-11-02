@@ -113,6 +113,26 @@ server {
 NGINX
     [ -d /etc/nginx/sites-enabled ] && ln -sf "$NGF" /etc/nginx/sites-enabled/skuter-operator
   fi
+  # Investorlar uchun demo sayt (demo-sayt/): https://$DOMEN/demo/ (statik, loginsiz). Paneli bloki ichiga
+  # bitta include qatori qo'shiladi; boshqa saytlarga tegilmaydi.
+  mkdir -p /etc/nginx/snippets
+  cat > /etc/nginx/snippets/skuter-demo.conf <<NGINX
+# skuter demo sayt (deploy/ornat.sh)
+location = /demo { return 301 /demo/; }
+location /demo/ {
+    alias $DIR/demo-sayt/;
+    index index.html;
+    add_header Cache-Control "no-cache";
+}
+NGINX
+  if ! grep -q 'snippets/skuter-demo.conf' "$NGF"; then
+    cp "$NGF" "$NGF.bak"
+    sed -i '0,/^\s*location \/ {/s||    include /etc/nginx/snippets/skuter-demo.conf;\n&|' "$NGF"
+    if ! nginx -t 2>/dev/null; then
+      echo "DIQQAT: demo sayt bloki nginx ga sig'madi, eski sozlama qaytarildi"
+      mv "$NGF.bak" "$NGF"
+    fi
+  fi
   if nginx -t 2>/dev/null; then
     systemctl reload nginx
     if ! command -v certbot >/dev/null; then
@@ -181,6 +201,7 @@ echo
 if [ "$HTTPS" = 1 ]; then
   echo "Operator paneli: https://$DOMEN   (yoki http://$IP:$PORT)"
   echo "Telefon kamerasi: https://$DOMEN/kamera"
+  echo "Demo sayt (investorlar uchun, loginsiz): https://$DOMEN/demo/"
 else
   echo "Operator paneli: http://$IP:$PORT"
 fi
