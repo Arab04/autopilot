@@ -1,0 +1,16 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-stocks
+      author: crm
+      changes:
+        - createTable:
+            tableName: stocks
+            columns:
+              - column: { name: id, type: BIGSERIAL, constraints: { primaryKey: true } }
+              - column: { name: product_id, type: BIGINT, constraints: { nullable: false } }
+              - column: { name: warehouse_id, type: BIGINT, constraints: { nullable: false } }
+              - column: { name: quantity, type: DOUBLE, constraints: { nullable: false } }
+        - addUniqueConstraint:
+            tableName: stocks
+            columnNames: product_id, warehouse_id
+            constraintName: uk_stock_product_warehouse

@@ -1,0 +1,37 @@
+databaseChangeLog:
+  - changeSet:
+      id: 014-deliveries
+      author: crm
+      changes:
+        - createTable:
+            tableName: deliveries
+            columns:
+              - column: { name: id, type: BIGSERIAL, constraints: { primaryKey: true } }
+              - column: { name: sale_id, type: BIGINT }
+              - column: { name: customer_name, type: VARCHAR(80), constraints: { nullable: false } }
+              - column: { name: customer_phone, type: VARCHAR(30), constraints: { nullable: false } }
+              - column: { name: address, type: VARCHAR(200), constraints: { nullable: false } }
+              - column: { name: lat, type: DOUBLE PRECISION, constraints: { nullable: false } }
+              - column: { name: lon, type: DOUBLE PRECISION, constraints: { nullable: false } }
+              - column: { name: note, type: VARCHAR(200) }
+              - column: { name: status, type: VARCHAR(20), constraints: { nullable: false } }
+              - column: { name: fleet_order_id, type: BIGINT }
+              - column: { name: pin, type: VARCHAR(10) }
+              - column: { name: tracking_link, type: VARCHAR(200) }
+              - column: { name: scooter_id, type: INT }
+              - column: { name: eta_minutes, type: DOUBLE PRECISION }
+              - column: { name: error, type: VARCHAR(300) }
+              - column: { name: created_at, type: TIMESTAMP, constraints: { nullable: false } }
+              - column: { name: updated_at, type: TIMESTAMP }
+              - column: { name: delivered_at, type: TIMESTAMP }
+        - addForeignKeyConstraint:
+            baseTableName: deliveries
+            baseColumnNames: sale_id
+            referencedTableName: sales
+            referencedColumnNames: id
+            constraintName: fk_delivery_sale
+        - createIndex:
+            tableName: deliveries
+            indexName: idx_deliveries_status
+            columns:
+              - column: { name: status }

@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-units
+      author: crm
+      changes:
+        - createTable:
+            tableName: units
+            columns:
+              - column: { name: id, type: BIGSERIAL, constraints: { primaryKey: true } }
+              - column: { name: name, type: VARCHAR(50), constraints: { nullable: false } }
+              - column: { name: symbol, type: VARCHAR(10), constraints: { nullable: false } }
+              - column: { name: category, type: VARCHAR(20), constraints: { nullable: false } }
+              - column: { name: main_unit, type: BOOLEAN, constraints: { nullable: false } }
+              - column: { name: coefficient, type: DOUBLE, constraints: { nullable: false } }

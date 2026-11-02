@@ -34,8 +34,11 @@ from pathlib import Path
 from xarita_sinovlar import CHIRCHIQ_MANZILLAR, CHIRCHIQ_OMBOR, CHIRCHIQ_OSM, Xarita, _asosiy
 from yol_dunyo import Kocha, Operator, ishga_tushir, kocha_toldir
 from autopilot.yol import YolSozlamalari
+from kamera import MAX_KADR, Kamera
 
 HTML = Path(__file__).with_name("operator_panel.html")
+FLOT_HTML = Path(__file__).with_name("flot.html")
+KAMERA_HTML = Path(__file__).with_name("kamera.html")
 QOLDA_MAX_TEZLIK = 20 / 3.6
 
 
@@ -357,10 +360,17 @@ class Simulyator:
                            "kochalar": kochalar}}
 
 
-def server_yasa(sim: Simulyator, host="127.0.0.1", port=8765, parol=None):
-    """parol berilsa, har bir so'rov HTTP Basic bilan himoyalanadi (foydalanuvchi: operator)."""
+def server_yasa(sim: Simulyator, host="127.0.0.1", port=8765, parol=None, login="operator", flot=None,
+                api_kalit=None):
+    """parol berilsa, har bir so'rov HTTP Basic bilan himoyalanadi (foydalanuvchi: login).
+
+    flot berilsa: /flot sahifasi va /api/... (buyurtmalar). api_kalit berilsa, CRM /api/buyurtma... yo'llariga
+    parolsiz, "X-API-Kalit" sarlavhasi bilan kira oladi (boshqa sahifalarga emas).
+    """
     panel = sim.panel
-    kalit = "Basic " + base64.b64encode(f"operator:{parol}".encode()).decode() if parol else None
+    kamera = Kamera()
+    kalit = "Basic " + base64.b64encode(f"{login}:{parol}".encode()).decode() if parol else None
+    flot_xarita = {}  # bir marta hisoblanadi
 
     class Ishlovchi(BaseHTTPRequestHandler):
         def log_message(self, *a):
@@ -376,7 +386,12 @@ def server_yasa(sim: Simulyator, host="127.0.0.1", port=8765, parol=None):
             self.wfile.write(data)
 
         def _ruxsatmi(self):
+            self.crm = False
             if kalit is None or hmac.compare_digest(self.headers.get("Authorization", ""), kalit):
+                return True
+            if api_kalit and self.path.startswith("/api/buyurtma") \
+                    and hmac.compare_digest(self.headers.get("X-API-Kalit", ""), api_kalit):
+                self.crm = True
                 return True
             self.send_response(401)
             self.send_header("WWW-Authenticate", 'Basic realm="Skuter operator paneli", charset="UTF-8"')
@@ -395,12 +410,111 @@ def server_yasa(sim: Simulyator, host="127.0.0.1", port=8765, parol=None):
                 with panel.lock:
                     s = panel.safar
                 self._javob(200, {"safar": s, "manzillar": sim.manzillar})
+            elif self.path == "/kamera":
+                self._javob(200, KAMERA_HTML.read_bytes(), "text/html")
+            elif self.path == "/kamera/holat":
+                self._javob(200, kamera.holat())
+            elif self.path.startswith("/kamera/oqim"):
+                self._oqim()
+            elif flot is not None and (self.path == "/flot" or self.path.startswith("/api/")):
+                self._flot_get()
             else:
                 self._javob(404, {"xato": "topilmadi"})
+
+        def _flot_get(self):
+            yol = self.path.split("?")[0].rstrip("/")
+            if yol == "/flot":
+                return self._javob(200, FLOT_HTML.read_bytes(), "text/html")
+            if yol == "/api/flot/holat":
+                return self._javob(200, flot.holat_json())
+            if yol == "/api/flot/xarita":
+                if not flot_xarita:
+                    flot_xarita.update(flot.xarita_json())
+                return self._javob(200, flot_xarita)
+            if yol == "/api/manzillar":
+                return self._javob(200, [{"raqam": i + 1, "nomi": n, "lat": la, "lon": lo}
+                                         for i, (n, la, lo) in enumerate(flot.manzillar)])
+            q = yol.split("/")
+            if len(q) == 4 and q[2] == "buyurtma" and q[3].isdigit():
+                with flot.lock:
+                    b = flot.buyurtmalar.get(int(q[3]))
+                    if b is None:
+                        return self._javob(404, {"xato": "buyurtma topilmadi"})
+                    return self._javob(200, flot.buyurtma_json(b))
+            self._javob(404, {"xato": "topilmadi"})
+
+        def _flot_post(self):
+            if "chunked" in self.headers.get("Transfer-Encoding", "").lower():
+                return self._javob(411, {"xato": "Content-Length sarlavhasi kerak (chunked tana o'qilmaydi)"})
+            try:
+                n = int(self.headers.get("Content-Length", 0))
+                b = json.loads(self.rfile.read(min(n, 10000)) or b"{}")
+                if not isinstance(b, dict):
+                    raise ValueError("JSON obyekt kerak")
+            except ValueError as e:
+                return self._javob(400, {"xato": f"noto'g'ri JSON: {e}"})
+            yol = self.path.split("?")[0].rstrip("/")
+            q = yol.split("/")
+            try:
+                if yol == "/api/buyurtma":
+                    bu, xato = flot.buyurtma_ber(
+                        lat=b.get("lat"), lon=b.get("lon"), manzil=b.get("manzil"), nomi=b.get("nomi", ""),
+                        mijoz=b.get("mijoz", ""), tel=b.get("tel", ""), izoh=b.get("izoh", ""),
+                        manba="crm" if self.crm else "panel", avto_mijoz=b.get("avto_mijoz", not self.crm))
+                    if xato:
+                        return self._javob(400, {"xato": xato})
+                    with flot.lock:
+                        return self._javob(201, flot.buyurtma_json(bu, sirli=True))
+                if len(q) == 5 and q[2] == "buyurtma" and q[3].isdigit() and q[4] in ("och", "bekor"):
+                    bid = int(q[3])
+                    xato = flot.qutini_och(bid, str(b.get("pin", ""))) if q[4] == "och" else flot.bekor_qil(bid)
+                    return self._javob(400 if xato else 200, {"xato": xato} if xato else {"ok": True})
+                if yol == "/api/flot/sozlama" and not self.crm:
+                    flot.sozla(**{k: b[k] for k in ("skuterlar", "operatorlar", "avto_buyurtma", "vaqt_tezligi",
+                                                    "pauza") if k in b})
+                    return self._javob(200, {"ok": True})
+            except (ValueError, TypeError) as e:
+                return self._javob(400, {"xato": f"noto'g'ri qiymat: {e}"})
+            self._javob(404, {"xato": "topilmadi"})
+
+        def _oqim(self):
+            """MJPEG: har yangi kadr multipart bo'lagi bo'lib ketadi; brauzer <img> da video kabi ko'rsatadi."""
+            self.send_response(200)
+            self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=kadr")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Accel-Buffering", "no")
+            self.end_headers()
+            raqam = -1
+            try:
+                while True:
+                    raqam, jpeg = kamera.kut(raqam)
+                    if jpeg is None:
+                        continue
+                    self.wfile.write(b"--kadr\r\nContent-Type: image/jpeg\r\nContent-Length: %d\r\n\r\n" % len(jpeg))
+                    self.wfile.write(jpeg + b"\r\n")
+                    self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError, TimeoutError):
+                pass
+
+        def _kadr_qabul(self):
+            n = int(self.headers.get("Content-Length", 0))
+            if not 0 < n <= MAX_KADR:
+                return self._javob(413, {"xato": f"kadr hajmi 1..{MAX_KADR} bayt bo'lishi kerak"})
+            try:
+                rtt = self.headers.get("X-Rtt")
+                raqam = kamera.qabul(self.rfile.read(n), float(rtt) if rtt else None,
+                                     self.headers.get("User-Agent", ""))
+            except ValueError as e:
+                return self._javob(400, {"xato": str(e)})
+            self._javob(200, {"ok": True, "raqam": raqam})
 
         def do_POST(self):
             if not self._ruxsatmi():
                 return
+            if self.path == "/kamera/kadr":
+                return self._kadr_qabul()
+            if flot is not None and self.path.startswith("/api/"):
+                return self._flot_post()
             if self.path != "/buyruq":
                 return self._javob(404, {"xato": "topilmadi"})
             try:
@@ -416,7 +530,9 @@ def server_yasa(sim: Simulyator, host="127.0.0.1", port=8765, parol=None):
                 xato = f"noto'g'ri so'rov: {e}"
             self._javob(400 if xato else 200, {"xato": xato} if xato else {"ok": True})
 
-    return ThreadingHTTPServer((host, port), Ishlovchi)
+    srv = ThreadingHTTPServer((host, port), Ishlovchi)
+    srv.kamera = kamera
+    return srv
 
 
 def main():
@@ -426,6 +542,10 @@ def main():
     ap.add_argument("--manzil", type=int, default=1, help=f"1..{len(CHIRCHIQ_MANZILLAR)}")
     ap.add_argument("--tezlik", type=float, default=1.0, help="simulyator vaqti tezligi (1 = real vaqt)")
     ap.add_argument("--davomli", action="store_true", help="safar tugasa keyingisini o'zi boshlaydi (server uchun)")
+    ap.add_argument("--skuterlar", type=int, default=5, help="flot: virtual skuterlar soni")
+    ap.add_argument("--operatorlar", type=int, default=2, help="flot: operatorlar soni")
+    ap.add_argument("--buyurtma", type=float, default=6.0, help="flot: avtomatik buyurtmalar / soat (0 = faqat API)")
+    ap.add_argument("--flot-tezlik", type=float, default=10.0, help="flot: vaqt tezligi")
     a = ap.parse_args()
     parol = os.environ.get("OPERATOR_PAROL") or None
     if a.host not in ("127.0.0.1", "localhost", "::1") and not parol:
@@ -433,13 +553,26 @@ def main():
     sim = Simulyator(PanelOperator(a.tezlik), davomli=a.davomli)
     threading.Thread(target=sim.ishla, daemon=True).start()
     sim.boshla(a.manzil)
-    srv = server_yasa(sim, a.host, a.port, parol)
+    from flot import Flot
+    flot = Flot(a.skuterlar, a.operatorlar, a.buyurtma, urug=random.randrange(10 ** 6), xarita=sim.xarita,
+                vaqt_tezligi=a.flot_tezlik)
+    threading.Thread(target=flot.ishla, daemon=True).start()
+    srv = server_yasa(sim, a.host, a.port, parol, os.environ.get("OPERATOR_LOGIN") or "operator", flot=flot,
+                      api_kalit=os.environ.get("FLOT_API_KALIT") or None)
     if os.environ.get("TELEGRAM_TOKEN"):
         from operator_bot import OperatorBot
         chatlar = {int(x) for x in os.environ.get("OPERATOR_CHATLAR", "").replace(",", " ").split()}
         bot = OperatorBot(os.environ["TELEGRAM_TOKEN"], sim.panel, chatlar, os.environ.get("PANEL_URL", ""))
         threading.Thread(target=bot.ishla, daemon=True).start()
         print(f"Telegram bot ishga tushdi, operatorlar: {sorted(chatlar) or 'hali yo`q (/start yuborib chat raqamini bilib oling)'}")
+    if os.environ.get("MIJOZ_TELEGRAM_TOKEN"):
+        from mijoz_bot import MijozBot
+        mbot = MijozBot(os.environ["MIJOZ_TELEGRAM_TOKEN"], flot)
+        try:
+            print(f"Mijoz boti ishga tushdi: @{mbot.boshlash()}")
+            threading.Thread(target=mbot.ishla, daemon=True).start()
+        except Exception as e:
+            print(f"Mijoz boti ishga tushmadi (token to'g'rimi?): {e}")
     print(f"Operator paneli: http://{'localhost' if a.host in ('127.0.0.1', '0.0.0.0') else a.host}:{srv.server_port}")
     try:
         srv.serve_forever()

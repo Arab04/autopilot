@@ -1,0 +1,26 @@
+databaseChangeLog:
+  - changeSet:
+      id: 011-add-phone-to-users
+      author: isroil
+      changes:
+        - addColumn:
+            tableName: users
+            columns:
+              - column:
+                  name: phone
+                  type: VARCHAR(20)
+
+              - column:
+                  name: enabled
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+
+              - column:
+                  name: user_type
+                  type: VARCHAR(20)
+                  defaultValue: CLIENT
+
+        - addUniqueConstraint:
+            tableName: users
+            columnNames: phone
+            constraintName: uk_users_phone

@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-warehouses
+      author: crm
+      changes:
+        - createTable:
+            tableName: warehouses
+            columns:
+              - column: { name: id, type: BIGSERIAL, constraints: { primaryKey: true } }
+              - column: { name: name, type: VARCHAR(80), constraints: { nullable: false } }
+              - column: { name: address, type: VARCHAR(200), constraints: { nullable: false } }

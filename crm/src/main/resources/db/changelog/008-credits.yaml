@@ -1,0 +1,54 @@
+databaseChangeLog:
+  - changeSet:
+      id: 008-credits
+      author: crm
+      changes:
+        - createTable:
+            tableName: credits
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+              - column:
+                  name: sale_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: customer_name
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: phone
+                  type: VARCHAR(30)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: total_amount
+                  type: NUMERIC(12,2)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: paid_amount
+                  type: NUMERIC(12,2)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: due_date
+                  type: DATE
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: status
+                  type: VARCHAR(20)
