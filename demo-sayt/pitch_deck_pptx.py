@@ -94,8 +94,8 @@ text(s,0.8,1.35,10.5,2.6,[[('Toshkent ko‘chalarida ',46,LIGHT,True,HEAD),('o�
 text(s,0.8,4.6,10,1.0,[('Buyurtmani ombordan mijozgacha o‘zi olib boradi. Bitta operator 20 tagacha skuterni kuzatadi. Yetkazish kuryerdan 2–3 baravar arzon.',18,ICE,False,BODY)])
 b=box(s,0.8,5.65,5.4,0.5,RGBColor(0x1E,0x2F,0x6B),RGBColor(0x5A,0x72,0xBF)); b.adjustments[0]=0.5
 text(s,1.0,5.65,5.2,0.5,[('Sinovlar Chirchiq shahrida o‘tkazilmoqda',14,LIGHT,True,BODY)],anchor=MSO_ANCHOR.MIDDLE)
-text(s,0.8,6.4,10,0.4,[('Isroil · Avtonom yetkazib berish skuterlari · Toshkent, O‘zbekiston',13,PALE,False,BODY)])
-notes(s,'Salom, men Isroil. Biz Toshkent uchun o‘zi yuradigan yetkazib berish skuterini qurmoqdamiz; birinchi sinovlar Chirchiqda o‘tmoqda. Dastur simulyatsiyada tayyor, keyingi qadam haqiqiy skuter.')
+text(s,0.8,6.4,10,0.4,[('IMAAN TECH · Bakhtiyor Juraboev, Isroil · Toshkent, O‘zbekiston',13,PALE,False,BODY)])
+notes(s,'Salom, biz IMAAN TECH jamoasimiz. Biz Toshkent uchun o‘zi yuradigan yetkazib berish skuterini qurmoqdamiz; birinchi sinovlar Chirchiqda o‘tmoqda. Dastur simulyatsiyada tayyor, keyingi qadam haqiqiy skuter.')
 
 # 2 muammo
 s=prs.slides.add_slide(blank); bg(s,LIGHT)
@@ -208,17 +208,17 @@ notes(s,'4 oy – maqsad, 6 oy – kafolat. Eng katta xavf qismlarning kechikish
 
 # 11 jamoa
 s=prs.slides.add_slide(blank); bg(s,LIGHT)
-label(s,0.8,0.6,'Jamoa'); h2(s,0.8,0.95,'Kichik jamoa, tayyor dastur, Chirchiqda joyida ish',28,h=0.8)
-team=[('Isroil','Asoschi, loyiha rahbari','[Tajribangiz: 2–3 jumla. Masalan: IT ta’lim markazi va CRM loyihalari, Chirchiqda hamkorlar va hokimlik bilan aloqa.]',NAVY,LIGHT,PALE,ICE,None),
-('[Ism]','Robototexnika muhandisi','Skuterni yig‘ish, kameralar va sensorlar, avtonom yurish dasturini haqiqiy uskunaga moslash. [Ism yoki «qidirilmoqda»]',WHITE,NAVY,BLUE,GRAY,LINE),
-('[Ism]','Kompyuter ko‘rish mutaxassisi','Odam, mashina, bordyurni aniqlash modellari, Chirchiq videolarida 99%+ aniqlik. [Ism yoki «qidirilmoqda»]',WHITE,NAVY,BLUE,GRAY,LINE),
-('[Ism]','Backend dasturchi','Operator paneli, flot, CRM integratsiyasi va Telegram botlar. [Ism yoki «qidirilmoqda»]',WHITE,NAVY,BLUE,GRAY,LINE)]
+label(s,0.8,0.6,'Jamoa'); h2(s,0.8,0.95,'Ikki asoschi hamma dasturni o‘zi yozdi, pul bilan yana 2 muhandis',28,h=0.8)
+team=[('Bakhtiyor Juraboev','Hammuassis, texnik rahbar','Software engineer, 6 yillik tajriba. Avtonom yurish dasturi, simulyatsiya, operator paneli, flot va server.',NAVY,LIGHT,PALE,ICE,None),
+('Isroil','Hammuassis, loyiha rahbari','2 yillik tajriba. Loyiha va hamkorlar, Chirchiqdagi pilot, skuterni yig‘ish va sinov.',NAVY,LIGHT,PALE,ICE,None),
+('Yollanadi','Robototexnika muhandisi','Skuterni yig‘ish, kameralar va sensorlar, dasturni haqiqiy uskunaga moslash. Investitsiyadan keyin 1-oyda.',WHITE,NAVY,BLUE,GRAY,LINE),
+('Yollanadi','Kompyuter ko‘rish mutaxassisi','Odam, mashina, bordyurni aniqlash modellari, Chirchiq videolarida 99%+ aniqlik. Investitsiyadan keyin 1-oyda.',WHITE,NAVY,BLUE,GRAY,LINE)]
 for i,(a,b_,c,fill,nc,rc,tc,ln) in enumerate(team):
     card(s,0.8+i*2.95,2.0,2.75,3.2,[(a,20,nc,True,HEAD),{'run':(b_,12.5,rc,True,BODY),'space':4},{'run':(c,11.5,tc,False,BODY),'space':8}],fill=fill,line=ln,pad=0.22)
 box(s,0.8,5.45,11.7,1.25,ICE)
 text(s,1.05,5.45,2.0,1.25,[('Bugungacha',16,BLUE,True,HEAD)],anchor=MSO_ANCHOR.MIDDLE)
 text(s,3.1,5.45,9.2,1.25,[('Dastur to‘liq simulyatsiyada yozildi va avtomatik sinovlardan o‘tadi (GitHub, har o‘zgarishda), operator paneli va flot tizimi serverda ishlab turibdi, Chirchiqda pilot uchun kelishuv bor. Hammasi tashqi mablag‘siz.',12,DEEP,False,BODY)],anchor=MSO_ANCHOR.MIDDLE)
-notes(s,'Jamoa slaydida ismlar va tajribani o‘zingiz to‘ldiring. Agar hali yollanmagan bo‘lsa, «qidirilmoqda» deb yozing.')
+notes(s,'Bizda ikki asoschi bor, hozirgacha hamma ishni o‘zimiz qildik: dastur, simulyatsiya, server va operator paneli. Investitsiya bilan robototexnika muhandisi va kompyuter ko‘rish mutaxassisini olamiz.')
 
 # 12 sorov
 s=prs.slides.add_slide(blank); bg(s,NAVY)
@@ -227,11 +227,11 @@ text(s,0.8,1.2,6.4,1.1,[('$300 000',48,LIGHT,True,HEAD)])
 text(s,0.8,2.4,6.4,1.6,[('12 oyga, 10–15% ulush evaziga. 5 ta skuter Chirchiqdagi sinov hududida haqiqiy mijozlarga ishlaydi, keyin Toshkent, 10 000+ yetkazish, tannarx $0,6 dan past ekani isbotlanadi.',15,ICE,False,BODY)])
 box(s,0.8,4.15,6.4,1.6,RGBColor(0x1E,0x2F,0x6B),RGBColor(0x5A,0x72,0xBF))
 text(s,1.05,4.3,5.9,1.35,[('BOSQICHMA-BOSQICH BERISH MUMKIN',10.5,PALE,True,BODY),{'run':('$100 ming darhol (skuterlar yig‘iladi) · $100 ming birinchi skuter 500 km to‘qnashuvsiz yurgach · $100 ming 5 skuter mijozlarga ishlay boshlagach',12.5,ICE,False,BODY),'space':6}])
-text(s,0.8,6.1,6.4,0.5,[('Aloqa: [telefon] · [email] · Demo: 167-86-72-220.sslip.io/demo',12.5,PALE,False,BODY)])
+text(s,0.8,5.95,6.4,0.8,[('Aloqa: Bakhtiyor Juraboev · +998 95 979 09 98 · juraboevbakhtiyor04@gmail.com · Demo: 167-86-72-220.sslip.io/demo',12.5,PALE,False,BODY)])
 box(s,7.7,0.9,4.9,5.7,LIGHT,None)
 text(s,8.0,1.15,4.3,0.5,[('Pul nimaga ketadi',18,NAVY,True,HEAD)])
-table(s,8.0,1.75,4.3,[['Modda','USD'],['5 ta skuter va ehtiyot qismlar','65 000'],['4 kishilik jamoa, 12 oy','110 000'],['Operatorlar va dala texnigi','25 000'],['Ruxsat, sug‘urta, sertifikat','15 000'],['Operator markazi, joy, internet','12 000'],['Hamkorlar va marketing','8 000'],['Zaxira (20%)','65 000'],['**Jami','**300 000']],[3.1,1.2],size=11.5,rowh=0.46,aligns=[L,R])
-notes(s,'$300 ming, 12 oy, 10–15% ulush. Investor xavfini kamaytirish uchun uch bosqichda berish mumkin. Aloqa ma’lumotlarini to‘ldiring.')
+table(s,8.0,1.75,4.3,[['Modda','USD'],['5 ta skuter va ehtiyot qismlar','65 000'],['Jamoa (2 asoschi + 2 muhandis), 12 oy','110 000'],['Operatorlar va dala texnigi','25 000'],['Ruxsat, sug‘urta, sertifikat','15 000'],['Operator markazi, joy, internet','12 000'],['Hamkorlar va marketing','8 000'],['Zaxira (20%)','65 000'],['**Jami','**300 000']],[3.1,1.2],size=11.5,rowh=0.46,aligns=[L,R])
+notes(s,'$300 ming, 12 oy, 10–15% ulush. Investor xavfini kamaytirish uchun uch bosqichda berish mumkin.')
 
 out='pitch-deck.pptx'
 prs.save(out); print(os.path.getsize(out))
